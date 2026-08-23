@@ -29,7 +29,7 @@
     }
   },
 
-  "postCreateCommand": "npm install -g opencode-ai && curl -fsSL https://claude.ai/install.sh | bash && npx skills@latest add mattpocock/skills",
+  "postCreateCommand": "npm install -g opencode-ai && curl -fsSL https://claude.ai/install.sh | bash",
 
   "remoteUser": "vscode"
 }
