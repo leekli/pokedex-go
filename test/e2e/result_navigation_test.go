@@ -27,7 +27,7 @@ func TestResult_BackToSearch(t *testing.T) {
 			// The Search Screen's title only ever renders there, and its
 			// re-appearance also confirms the input was reset for a fresh
 			// lookup (see searchModel.reset in internal/tui/search.go).
-			waitForAll(t, tm, 2*time.Second, "Search the Pokédex")
+			waitForAll(t, tm, 2*time.Second, "POKÉDEX SEARCH")
 		})
 	}
 }

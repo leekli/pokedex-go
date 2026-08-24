@@ -41,6 +41,6 @@ func advanceToSearchScreen(t *testing.T, tm *teatest.TestModel) {
 	}, teatest.WithDuration(2*time.Second))
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
 	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("Search the Pokédex"))
+		return bytes.Contains(out, []byte("POKÉDEX SEARCH"))
 	}, teatest.WithDuration(2*time.Second))
 }
