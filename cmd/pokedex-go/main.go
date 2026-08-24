@@ -16,7 +16,7 @@ func main() {
 	client := pokeapi.NewClient()
 	app := tui.NewApp(client)
 
-	if _, err := tea.NewProgram(app).Run(); err != nil {
+	if _, err := tea.NewProgram(app, tea.WithAltScreen()).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "pokedex-go:", err)
 		os.Exit(1)
 	}
