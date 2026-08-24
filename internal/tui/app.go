@@ -38,7 +38,7 @@ func NewApp(client *pokeapi.Client) App {
 }
 
 func (a App) Init() tea.Cmd {
-	return nil
+	return a.splash.Init()
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
