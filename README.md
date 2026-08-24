@@ -1,4 +1,4 @@
-# pokedex-go
+# ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png) pokedex-go ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png)
 
 A terminal Pokédex. Launch it, press Enter, type a Pokémon's name or its
 National Dex Number, and see its sprite and stats rendered in your terminal,
@@ -10,6 +10,11 @@ backed by the public [PokeAPI](https://pokeapi.co/).
 For the project's vocabulary (Splash Screen, Search Screen, Result Screen,
 National Dex Number, Lookup Error vs. Service Error, etc.), see
 [CONTEXT.md](./CONTEXT.md).
+
+![Pokemon Bulbasaur](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png)
+![Pokemon Charmander](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png)
+![Pokemon Squirtle](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png)
+![Pokemon Pikachu](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png)
 
 ## Features
 
@@ -24,18 +29,18 @@ National Dex Number, Lookup Error vs. Service Error, etc.), see
   original English games), and base stats (HP, Attack, Defense, Sp. Atk,
   Sp. Def, Speed).
 - **Distinct error handling** — a bad or unknown name/number shows a
-  *Lookup Error* inline; a PokeAPI outage or timeout shows a distinguishable
-  *Service Error* instead, so you know whether retrying will help.
+  _Lookup Error_ inline; a PokeAPI outage or timeout shows a distinguishable
+  _Service Error_ instead, so you know whether retrying will help.
 - **Graceful color degradation** — colors automatically adapt to your
   terminal's capabilities (truecolor, 256-color, or none).
 
 ## Controls
 
-| Screen | Keys |
-| --- | --- |
-| Splash | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit |
+| Screen | Keys                                                  |
+| ------ | ----------------------------------------------------- |
+| Splash | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit          |
 | Search | `Enter` search · `Esc` back to Splash · `Ctrl+C` quit |
-| Result | `Enter` / `Esc` search again · `Q` / `Ctrl+C` quit |
+| Result | `Enter` / `Esc` search again · `Q` / `Ctrl+C` quit    |
 
 (On the Search Screen, only `Ctrl+C` quits — a bare `Q` stays typeable, since
 plenty of Pokémon names contain it, e.g. Squirtle.)
@@ -90,7 +95,7 @@ go test ./test/e2e/...
 
 ### Live smoke test (opt-in, not part of the default suite)
 
-One additional test hits the *real* PokeAPI once, to catch drift between the
+One additional test hits the _real_ PokeAPI once, to catch drift between the
 mocked fixtures used everywhere else and PokeAPI's actual response shape.
 It's excluded from normal builds and test runs by a `live` build tag and a
 runtime environment-variable check, so it never runs by accident:
