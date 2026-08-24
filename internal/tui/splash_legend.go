@@ -14,8 +14,11 @@ var splashArt string
 // escapes in the asset) means the splash art participates in the same
 // terminal-capability color degradation as the rest of the UI.
 var splashLegend = map[rune]lipgloss.Style{
-	'Y': lipgloss.NewStyle().Foreground(lipgloss.Color("#FFCB05")), // Pokémon yellow
-	'B': lipgloss.NewStyle().Foreground(lipgloss.Color("#3B4CCA")), // Pokémon blue
+	'Y': lipgloss.NewStyle().Foreground(lipgloss.Color("#FFCB05")), // Pokémon yellow (wordmark fill)
+	'B': lipgloss.NewStyle().Foreground(lipgloss.Color("#3B4CCA")), // Pokémon blue (wordmark outline)
+	'R': lipgloss.NewStyle().Foreground(lipgloss.Color("#EE1515")), // Poké Ball red
+	'W': lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")), // Poké Ball white
+	'K': lipgloss.NewStyle().Foreground(lipgloss.Color("#222224")), // Poké Ball band and outline
 }
 
 // blockGlyph is drawn, in the appropriate color, for every recognized role
