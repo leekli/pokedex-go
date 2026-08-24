@@ -191,7 +191,7 @@ func (m searchModel) View() string {
 	b.WriteString("\n")
 	b.WriteString("\n")
 
-	b.WriteString(renderFlourish())
+	b.WriteString(renderDotFlourish(searchFlourishTypes))
 	b.WriteString("\n")
 	b.WriteString(searchBoxStyle.Render(m.input.View()))
 	b.WriteString("\n\n")
@@ -233,11 +233,13 @@ func searchBallArt() [7]string {
 	return [7]string{top, redRow, redRow, band, whiteRow, whiteRow, bottom}
 }
 
-// renderFlourish draws the decorative dot divider above the input box, one
-// dot per searchFlourishTypes entry in that type's conventional color.
-func renderFlourish() string {
-	dots := make([]string, len(searchFlourishTypes))
-	for i, t := range searchFlourishTypes {
+// renderDotFlourish draws a decorative dot divider, one dot per entry in
+// types, each in that type's conventional color - shared by the Search
+// Screen (see searchFlourishTypes) and Result Screen (resultFlourishTypes)
+// so both scenes use the same brand motif.
+func renderDotFlourish(types []string) string {
+	dots := make([]string, len(types))
+	for i, t := range types {
 		dots[i] = lipgloss.NewStyle().Foreground(pokemon.TypeColor(t)).Render("●")
 	}
 	return strings.Join(dots, " ")
