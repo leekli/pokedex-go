@@ -13,7 +13,7 @@ The screen where the user types a Pokémon name or National Dex Number to look u
 _Avoid_: Input screen, lookup screen
 
 **Result Screen**:
-The screen shown after a successful lookup: the Pokémon's Sprite plus its Stat Block. From here the user can return to the Search Screen to look up another Pokémon, or quit.
+The screen shown after a successful lookup: the Pokémon's Sprite plus its Stat Block. Enter always returns to the Search Screen to look up another Pokémon; Esc returns to whichever screen led here instead — the Search Screen, or the Type Roster Screen if this Pokémon was reached from there. Q/Ctrl+C quit.
 _Avoid_: Details screen, info screen
 
 **Lookup Error**:
@@ -39,3 +39,19 @@ _Avoid_: Stats panel, info block, stat sheet
 **Type Badge**:
 A colored label for one of a Pokémon's types (e.g. Fire, Water, Grass), styled with that type's conventional color from official Pokédex UIs. Up to two appear per Pokémon in the Stat Block.
 _Avoid_: Type tag, type pill
+
+**Search by Type button**:
+An interactive control on the Search Screen, beneath the name/number input, that leads to the Type Select Screen. Reachable by keyboard (Tab from the input, then Enter/Space) or, where the terminal supports it, a mouse click.
+_Avoid_: Type search button, Browse by type
+
+**Type Select Screen**:
+The screen reached from the Search by Type button: a list of all 18 Pokémon types, each normalized to a capitalized display form (e.g. "fire" shows as "Fire"). Esc returns to the Search Screen; selecting a type (by keyboard or, where supported, mouse) advances to the Type Roster Screen for that type. Ctrl+C quits.
+_Avoid_: Type screen, Types list, Species screen
+
+**Type Roster Screen**:
+The screen reached from the Type Select Screen: a table of every Pokémon of the chosen type, in National Dex Number order, showing each one's Dex #, Name, and Generation where known. Esc returns to the Type Select Screen; selecting a Pokémon (by keyboard or, where supported, mouse) advances to the Result Screen for that Pokémon. Ctrl+C quits.
+_Avoid_: Type results screen, Type list screen, Pokémon by type screen
+
+**Generation**:
+The numbered era a Pokémon species was first introduced in (e.g. "Generation I" for the original 151), shown only on the Type Roster Screen. Distinct from a Pokémon's stats or types — purely a historical/release grouping.
+_Avoid_: Gen, era

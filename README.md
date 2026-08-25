@@ -1,15 +1,16 @@
 # ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png) pokedex-go ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png)
 
-A terminal Pokédex. Launch it, press Enter, type a Pokémon's name or its
-National Dex Number, and see its sprite and stats rendered in your terminal,
-styled after the Pokédex screens from the Generation 1 Game Boy games.
+A terminal Pokédex. Launch it, press Enter, then either type a Pokémon's
+name or National Dex Number, or browse by type, and see its sprite and
+stats rendered in your terminal, styled after the Pokédex screens from the
+Generation 1 Game Boy games.
 
 Built in Go with [Bubble Tea](https://github.com/charmbracelet/bubbletea),
 backed by the public [PokeAPI](https://pokeapi.co/).
 
-For the project's vocabulary (Splash Screen, Search Screen, Result Screen,
-National Dex Number, Lookup Error vs. Service Error, etc.), see
-[CONTEXT.md](./CONTEXT.md).
+For the project's vocabulary (Splash Screen, Search Screen, Type Select
+Screen, Type Roster Screen, Result Screen, National Dex Number, Lookup
+Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
 
 ![Pokemon Bulbasaur](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png)
 ![Pokemon Charmander](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png)
@@ -25,11 +26,21 @@ National Dex Number, Lookup Error vs. Service Error, etc.), see
 - **Search by name or number** — type a Pokémon's name (`pikachu`, `Mr Mime`,
   `farfetch'd`, `nidoran♀`) or its National Dex Number (`25`). Input is
   normalized automatically to match PokeAPI's expected format.
+- **Search by Type** — a button beneath the search box opens the Type
+  Select Screen: all 18 Pokémon types, color-coded the same way as the
+  Result Screen's type badges. Picking one opens its Type Roster Screen — a
+  scrollable table of every real Pokémon of that type, in National Dex
+  Number order, with its generation where known — and selecting a row opens
+  that Pokémon's Result Screen, same as a direct name/number search.
 - **Result Screen** — the Pokémon's sprite, rendered as colored terminal
   block art, plus a Gen-1-styled stat block: Pokédex #, name, type badges
   (color-coded per type), height and weight in imperial units (matching the
   original English games), and base stats (HP, Attack, Defense, Sp. Atk,
   Sp. Def, Speed).
+- **Keyboard and mouse** — every screen is fully keyboard-driven, and where
+  your terminal reports mouse events, the same actions (clicking the Search
+  by Type button, a type, a Pokémon row, or scrolling the roster) work with
+  the mouse too — never one or the other.
 - **Distinct error handling** — a bad or unknown name/number shows a
   _Lookup Error_ inline; a PokeAPI outage or timeout shows a distinguishable
   _Service Error_ instead, so you know whether retrying will help.
@@ -38,14 +49,23 @@ National Dex Number, Lookup Error vs. Service Error, etc.), see
 
 ## Controls
 
-| Screen | Keys                                                  |
-| ------ | ----------------------------------------------------- |
-| Splash | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit          |
-| Search | `Enter` search · `Esc` back to Splash · `Ctrl+C` quit |
-| Result | `Enter` / `Esc` search again · `Q` / `Ctrl+C` quit    |
+| Screen      | Keys                                                                                     |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| Splash      | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit                                              |
+| Search      | `Enter` search · `Tab` switch to the Search by Type button · `Esc` back · `Ctrl+C` quit   |
+| Type Select | `↑`/`↓` browse · `Enter` select a type · `Esc` back · `Ctrl+C` quit                       |
+| Type Roster | `↑`/`↓` scroll · `Enter` select a Pokémon · `Esc` back · `Ctrl+C` quit                    |
+| Result      | `Enter` search again · `Esc` back · `Q` / `Ctrl+C` quit                                   |
+
+Mouse: click the Search by Type button, click a type or a Pokémon row, and
+scroll the wheel on the Type Roster's table — all work wherever your
+terminal reports mouse events.
 
 (On the Search Screen, only `Ctrl+C` quits — a bare `Q` stays typeable, since
-plenty of Pokémon names contain it, e.g. Squirtle.)
+plenty of Pokémon names contain it, e.g. Squirtle. On the Result Screen,
+`Esc` returns to wherever you came from — the Search Screen, or the Type
+Roster Screen if that's how you got here — while `Enter` always starts a
+fresh search; see [Architecture](#architecture).)
 
 ## Requirements
 
@@ -97,8 +117,9 @@ go test ./internal/pokemon/... ./internal/spriteart/...
 go test ./internal/pokeapi/...
 
 # Just the Bubble Tea models in isolation (Update/View for Splash, Search,
-# Result, and App) plus the pure helpers behind them (the startup sweep's
-# color math, lookupCmd's PokeAPI/sprite orchestration):
+# Type Select, Type Roster, Result, and App) plus the pure helpers behind
+# them (the startup sweep's color math, lookupCmd/loadTypeRosterCmd's
+# PokeAPI orchestration, mouse zone hit-testing):
 go test ./internal/tui/...
 
 # Just the full-flow TUI tests (splash → search → result, quitting,
@@ -109,13 +130,18 @@ go test ./test/e2e/...
 ### Coverage
 
 `internal/pokemon`, `internal/spriteart`, and `internal/pokeapi` sit at
-100% statement coverage on their own. `internal/tui` reports ~96% from its
+100% statement coverage on their own. `internal/tui` reports ~93% from its
 own unit tests (`go test ./internal/tui/... -cover`); the remaining lines —
-mostly `App`/`searchModel`/`resultModel` `Update` branches that only fire
-mid-animation or mid-lookup — are exercised by `test/e2e`'s full-flow runs
-instead of being duplicated at the unit level. Combined
+mostly `App`/screen-model `Update` branches that only fire mid-animation or
+mid-lookup — are exercised by `test/e2e`'s full-flow runs instead of being
+duplicated at the unit level. Combined
 (`go test -coverpkg=./internal/... ./...`), the suite reaches 100% of
 `internal/...` statements.
+
+Mouse hit-testing (the Search by Type button, the Type Select list, the
+Type Roster's scroll wheel) is unit-tested directly against a real
+`*zone.Manager` (see `internal/tui/zones.go`), same layer as everything
+else in `internal/tui` — no separate mouse-specific test tooling.
 
 Every file under `internal/tui/` (including `splash.go` and
 `splash_legend.go`) has direct unit-test coverage of its pure
@@ -148,13 +174,14 @@ POKEDEX_LIVE_TEST=1 go test -tags=live ./test/live/...
 ## Architecture
 
 pokedex-go follows Bubble Tea's [Elm Architecture](https://github.com/charmbracelet/bubbletea#tutorial):
-a single root `Model` (`tui.App`) receives each event as a `Msg`, its
-`Update` returns a new `Model` plus an optional `Cmd` (an async side
-effect, e.g. a PokeAPI call), and `View` renders the current `Model` to a
-string every cycle. There's no shared mutable state — every screen
-transition and network result flows through this `Msg → Update → Cmd → Msg`
-loop, driven from `cmd/pokedex-go/main.go`, which just wires a
-`pokeapi.Client` into a `tui.App` and hands both to Bubble Tea.
+a single root `Model` (`tui.App`) receives each event as a `Msg` — a
+keypress, a mouse click, or a PokeAPI response arriving — its `Update`
+returns a new `Model` plus an optional `Cmd` (an async side effect, e.g. a
+PokeAPI call), and `View` renders the current `Model` to a string every
+cycle. There's no shared mutable state — every screen transition and
+network result flows through this `Msg → Update → Cmd → Msg` loop, driven
+from `cmd/pokedex-go/main.go`, which just wires a `pokeapi.Client` into a
+`tui.App` and hands both to Bubble Tea.
 
 Layering is strict and one-directional: `internal/tui` is the only package
 that imports Bubble Tea, and `internal/pokeapi` is the only package that
@@ -162,39 +189,59 @@ performs network I/O. Both build on `internal/pokemon` — pure query/name
 parsing, unit conversion, type colors, and the `StatBlock` type, with no
 knowledge of the TUI or the network. `internal/spriteart` (image → ANSI
 block art) is likewise pure, used only by `tui` to render a fetched sprite
-— see [Project layout](#project-layout) below.
+— see [Project layout](#project-layout) below. Mouse support is layered on
+the same way: [bubblezone](https://github.com/lrstanley/bubblezone) tags
+clickable regions (the Search by Type button, a type, a Pokémon row) as
+they're rendered, and `App.View` resolves them once at the root — every
+screen still works keyboard-only if a click never arrives.
 
-A Pokémon lookup — the app's one real workflow — moves through these
-layers like this:
+`App` doesn't hardcode each screen's "go back" destination; it keeps a
+navigation history stack instead, so Esc always returns to whichever screen
+led to the current one, however deep the path — see
+[`docs/adr/0001`](./docs/adr/0001-navigation-history-for-back-navigation.md).
+The one exception is the Result Screen's Enter, which always means "search
+again" and resets straight back to the Search Screen regardless of history.
 
 ```mermaid
 flowchart LR
     Splash -->|Enter| Search
-    Search -->|pokemon.ResolveQuery| Client["pokeapi.Client.Lookup"]
-    Client -->|HTTPS| PokeAPI[(pokeapi.co)]
-    Client -->|BuildStatBlock| Stat[pokemon.StatBlock]
-    Client -->|FetchSprite| Sprite[spriteart.Render]
-    Stat --> Msg[lookupResultMsg]
-    Sprite --> Msg
-    Msg -->|showResultMsg| Result
-    Result -->|Esc / Enter| Search
+    Search -->|Esc| Splash
+    Search -->|Tab, then Enter — or click| TypeSelect[Type Select]
+    TypeSelect -->|Esc| Search
+    TypeSelect -->|Enter, or click a type| TypeRoster[Type Roster]
+    TypeRoster -->|Esc| TypeSelect
+    Search -->|Enter: name/number| Result
+    TypeRoster -->|Enter, or click a row| Result
+    Result -->|Enter: fresh search| Search
+    Result -.->|Esc: back to wherever this came from| Search
+    Result -.->|Esc: back to wherever this came from| TypeRoster
 ```
 
-`pokeapi.Client.Lookup` resolves a National Dex Number via
-`GetSpecies` → `GetPokemon`, or a name via `GetPokemon` directly, and
-classifies any failure as a `*LookupError` (bad input) or `*ServiceError`
-(PokeAPI's fault) — see CONTEXT.md. A failed sprite fetch doesn't fail the
-whole lookup; the Result Screen just falls back to a "no sprite" message.
+Both paths into the Result Screen end up calling the same
+`pokeapi.Client.Lookup`: a National Dex Number resolves via `GetSpecies` →
+`GetPokemon`, a name (typed, or picked off a Type Roster row) calls
+`GetPokemon` directly. Any failure is classified as a `*LookupError` (bad
+input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. A failed
+sprite fetch doesn't fail the whole lookup; the Result Screen just falls
+back to a "no sprite" message.
+
+The Type Roster Screen's own data comes from `Client.GetPokemonByType`
+(PokeAPI's `/type/{name}`, filtered down to real, dex-numbered Pokémon —
+see [`docs/adr/0002`](./docs/adr/0002-filter-type-roster-by-pokemon-id.md))
+plus `Client.GetGenerationIndex`, a nine-request, best-effort map built
+once and cached for the rest of the session rather than refetched on every
+type selected.
 
 ## Project layout
 
 ```
 cmd/pokedex-go/       entrypoint - wires everything together and runs the program
-internal/pokemon/     pure domain logic: input normalization, unit conversion, type colors
+internal/pokemon/     pure domain logic: input normalization, unit conversion, type colors, generations
 internal/pokeapi/     PokeAPI HTTP client, JSON decoding, Lookup/Service error classification
 internal/spriteart/   renders a decoded image as colored terminal block art
-internal/tui/         Bubble Tea layer: Splash, Search, and Result screens
+internal/tui/         Bubble Tea layer: Splash, Search, Type Select, Type Roster, and Result screens
 test/e2e/              full-flow tests driven through the TUI via teatest
 test/live/             opt-in live smoke test against the real PokeAPI
+docs/adr/              architecture decision records — the "why" behind hard-to-reverse choices
 CONTEXT.md            domain glossary — the project's vocabulary
 ```
