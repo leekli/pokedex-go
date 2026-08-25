@@ -9,6 +9,7 @@ import (
 
 func TestNewApp_StartsOnSplashScreen(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	if a.screen != screenSplash {
 		t.Errorf("NewApp().screen = %v, want screenSplash", a.screen)
 	}
@@ -16,6 +17,7 @@ func TestNewApp_StartsOnSplashScreen(t *testing.T) {
 
 func TestApp_Init_StartsSplashSweep(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	cmd := a.Init()
 	if cmd == nil {
 		t.Fatal("App.Init() returned a nil cmd, want the splash sweep's tick cmd")
@@ -39,6 +41,7 @@ func TestApp_Update_CtrlCQuitsFromAnyScreen(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a := NewApp(nil)
+			t.Cleanup(a.Close)
 			a.screen = tt.screen
 
 			model, cmd := a.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
@@ -62,6 +65,7 @@ func TestApp_Update_CtrlCQuitsFromAnyScreen(t *testing.T) {
 // leaks into the next one.
 func TestApp_Update_SwitchScreenMsg_ResetsSearchWhenEnteringSearch(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	a.search.input.SetValue("stale query")
 	a.search.errMsg = "stale error"
 	a.search.loading = true
@@ -89,6 +93,7 @@ func TestApp_Update_SwitchScreenMsg_ResetsSearchWhenEnteringSearch(t *testing.T)
 // Result->Search transition is covered above) leaves search state alone.
 func TestApp_Update_SwitchScreenMsg_ToSplashDoesNotResetSearch(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	a.search.input.SetValue("kept")
 
 	model, _ := a.Update(switchScreenMsg{to: screenSplash})
@@ -104,6 +109,7 @@ func TestApp_Update_SwitchScreenMsg_ToSplashDoesNotResetSearch(t *testing.T) {
 
 func TestApp_Update_ShowResultMsg_SwitchesToResultScreen(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	stat := testStatBlock()
 
 	model, _ := a.Update(showResultMsg{stat: stat})
@@ -122,6 +128,7 @@ func TestApp_Update_ShowResultMsg_SwitchesToResultScreen(t *testing.T) {
 // rather than only the three App-level message types being wired up.
 func TestApp_Update_DelegatesToCurrentScreen(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	a.screen = screenSplash
 
 	model, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -151,6 +158,7 @@ func TestApp_View_DelegatesToCurrentScreen(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			a := NewApp(nil)
+			t.Cleanup(a.Close)
 			a.screen = tt.screen
 			a.result = newResultModel(testStatBlock(), nil)
 
@@ -162,14 +170,162 @@ func TestApp_View_DelegatesToCurrentScreen(t *testing.T) {
 }
 
 // TestApp_View_UnknownScreenRendersEmpty exercises View's defensive default
-// case: screen is a private enum with only three valid values, so this can
-// only happen via a bug, but View must still degrade safely rather than
+// case: screen is a private enum with a small set of valid values, so this
+// can only happen via a bug, but View must still degrade safely rather than
 // panic.
 func TestApp_View_UnknownScreenRendersEmpty(t *testing.T) {
 	a := NewApp(nil)
+	t.Cleanup(a.Close)
 	a.screen = screen(99)
 
 	if got := a.View(); got != "" {
 		t.Errorf("App.View() with an unrecognized screen = %q, want empty string", got)
+	}
+}
+
+// TestApp_Update_SwitchScreenMsg_PushesHistory proves a forward transition
+// records where it came from, so a later backMsg can return there (see
+// docs/adr/0001-navigation-history-for-back-navigation.md).
+func TestApp_Update_SwitchScreenMsg_PushesHistory(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenSplash
+
+	model, _ := a.Update(switchScreenMsg{to: screenSearch})
+	got := model.(App)
+
+	if len(got.history) != 1 || got.history[0] != screenSplash {
+		t.Errorf("history = %v, want [screenSplash]", got.history)
+	}
+}
+
+// TestApp_Update_BackMsg_PopsHistory proves backMsg returns to whatever was
+// most recently pushed, regardless of which screen is currently showing.
+func TestApp_Update_BackMsg_PopsHistory(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenTypeRoster
+	a.history = []screen{screenSplash, screenSearch, screenTypeSelect}
+
+	model, cmd := a.Update(backMsg{})
+	got := model.(App)
+
+	if got.screen != screenTypeSelect {
+		t.Errorf("screen = %v, want screenTypeSelect (the top of history)", got.screen)
+	}
+	if len(got.history) != 2 {
+		t.Errorf("history = %v, want length 2 after popping", got.history)
+	}
+	if cmd != nil {
+		t.Errorf("Update(backMsg) returned a non-nil cmd, want nil")
+	}
+}
+
+// TestApp_Update_BackMsg_EmptyHistoryIsNoOp proves popping an empty history
+// (which shouldn't normally happen - every screen but Splash always has
+// something pushed before it - see app.go's Update) doesn't panic or change
+// the screen.
+func TestApp_Update_BackMsg_EmptyHistoryIsNoOp(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenSearch
+	a.history = nil
+
+	model, _ := a.Update(backMsg{})
+	got := model.(App)
+
+	if got.screen != screenSearch {
+		t.Errorf("screen = %v, want unchanged screenSearch", got.screen)
+	}
+}
+
+// TestApp_Update_SearchAgainMsg_ResetsToFreshSearch proves Enter on the
+// Result Screen always lands on a freshly-reset Search Screen with history
+// collapsed back to just Splash, regardless of how deep the navigation
+// history was (e.g. reached via the Type Roster Screen) - see
+// docs/adr/0001.
+func TestApp_Update_SearchAgainMsg_ResetsToFreshSearch(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenResult
+	a.history = []screen{screenSplash, screenSearch, screenTypeSelect, screenTypeRoster}
+	a.search.input.SetValue("stale")
+	a.search.errMsg = "stale error"
+
+	model, _ := a.Update(searchAgainMsg{})
+	got := model.(App)
+
+	if got.screen != screenSearch {
+		t.Errorf("screen = %v, want screenSearch", got.screen)
+	}
+	if len(got.history) != 1 || got.history[0] != screenSplash {
+		t.Errorf("history = %v, want [screenSplash] (collapsed, not retracing the Type Roster path)", got.history)
+	}
+	if got.search.input.Value() != "" || got.search.errMsg != "" {
+		t.Errorf("search state not reset: input=%q errMsg=%q", got.search.input.Value(), got.search.errMsg)
+	}
+}
+
+// TestApp_Update_ShowTypeRosterMsg_PushesHistoryAndTriggersLoad proves
+// selecting a type pushes history, switches to the Type Roster Screen with
+// a fresh (loading) model for that type, and returns the load command.
+func TestApp_Update_ShowTypeRosterMsg_PushesHistoryAndTriggersLoad(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenTypeSelect
+
+	model, cmd := a.Update(showTypeRosterMsg{typeName: "fire"})
+	got := model.(App)
+
+	if got.screen != screenTypeRoster {
+		t.Errorf("screen = %v, want screenTypeRoster", got.screen)
+	}
+	if len(got.history) != 1 || got.history[0] != screenTypeSelect {
+		t.Errorf("history = %v, want [screenTypeSelect]", got.history)
+	}
+	if got.typeRoster.typeName != "fire" {
+		t.Errorf("typeRoster.typeName = %q, want fire", got.typeRoster.typeName)
+	}
+	if !got.typeRoster.loading {
+		t.Error("typeRoster.loading = false, want true (a load should be in flight)")
+	}
+	if cmd == nil {
+		t.Fatal("Update(showTypeRosterMsg) returned a nil cmd, want loadTypeRosterCmd")
+	}
+}
+
+// TestApp_Update_ShowTypeRosterMsg_ReusesCachedGenerations proves a second
+// type selection carries forward whatever generation data the first one
+// fetched, rather than discarding it - see loadTypeRosterCmd's doc comment
+// on why that fetch is worth caching for a whole session.
+func TestApp_Update_ShowTypeRosterMsg_ReusesCachedGenerations(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.typeRoster.generations = map[int]string{1: "generation-i"}
+
+	model, _ := a.Update(showTypeRosterMsg{typeName: "water"})
+	got := model.(App)
+
+	if got.typeRoster.generations[1] != "generation-i" {
+		t.Errorf("typeRoster.generations = %v, want the previous model's cache carried forward", got.typeRoster.generations)
+	}
+}
+
+// TestApp_Close_NilZonesIsSafe proves Close doesn't panic on a zero-value
+// App (no zone manager), matching the nil-safety the rest of the mouse
+// support relies on (see zones.go).
+func TestApp_Close_NilZonesIsSafe(t *testing.T) {
+	var a App
+	a.Close()
+}
+
+// TestApp_View_NilZonesIsSafe proves View doesn't panic on a zero-value App
+// (no zone manager) - the same nil-safety Close relies on, but for the
+// zones.Scan call in View instead.
+func TestApp_View_NilZonesIsSafe(t *testing.T) {
+	a := App{screen: screenSplash, splash: newSplashModel()}
+
+	if view := a.View(); !strings.Contains(view, "Press Enter to search for Pokémon") {
+		t.Errorf("App.View() with nil zones = %q, want the splash prompt still rendered", view)
 	}
 }

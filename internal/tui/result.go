@@ -73,9 +73,13 @@ func newResultModel(stat pokemon.StatBlock, sprite image.Image) resultModel {
 	return resultModel{stat: stat, sprite: sprite}
 }
 
-// Update handles the Result Screen's keys directly: Esc or Enter return to
-// the Search Screen; Q quits (safe here too - no free-text input on this
-// screen). Ctrl+C is handled globally by App.
+// Update handles the Result Screen's keys directly: Esc goes back to
+// whichever screen led here (the Search Screen, or the Type Roster Screen -
+// see docs/adr/0001-navigation-history-for-back-navigation.md); Enter has a
+// single fixed meaning, "look up another Pokémon," always landing on a
+// freshly-reset Search Screen regardless of how this screen was reached. Q
+// quits (safe here too - no free-text input on this screen). Ctrl+C is
+// handled globally by App.
 func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 	km, ok := msg.(tea.KeyMsg)
 	if !ok {
@@ -83,8 +87,10 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 	}
 
 	switch km.Type {
-	case tea.KeyEsc, tea.KeyEnter:
-		return m, switchTo(screenSearch)
+	case tea.KeyEsc:
+		return m, goBack()
+	case tea.KeyEnter:
+		return m, searchAgain()
 	}
 	if km.String() == "q" {
 		return m, tea.Quit

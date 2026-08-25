@@ -132,31 +132,36 @@ func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
 	}
 }
 
-// TestResultModel_Update_EscAndEnterReturnToSearch proves both Esc and
-// Enter return to the Search Screen, directly checking the cmd's message
-// rather than only the rendered View (see result_navigation_test.go for the
-// full-flow e2e equivalent).
-func TestResultModel_Update_EscAndEnterReturnToSearch(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		key  tea.KeyMsg
-	}{
-		{"esc", tea.KeyMsg{Type: tea.KeyEsc}},
-		{"enter", tea.KeyMsg{Type: tea.KeyEnter}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			m := newResultModel(testStatBlock(), nil)
+// TestResultModel_Update_EscGoesBack proves Esc asks App to go back to
+// whichever screen led here, rather than naming a fixed destination itself
+// (see docs/adr/0001-navigation-history-for-back-navigation.md and
+// result_navigation_test.go for the full-flow e2e equivalent).
+func TestResultModel_Update_EscGoesBack(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil)
 
-			_, cmd := m.Update(tt.key)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
-			if cmd == nil {
-				t.Fatal("Update returned a nil cmd, want switchTo(screenSearch)")
-			}
-			msg, ok := cmd().(switchScreenMsg)
-			if !ok || msg.to != screenSearch {
-				t.Errorf("Update cmd produced %#v, want switchScreenMsg{to: screenSearch}", cmd())
-			}
-		})
+	if cmd == nil {
+		t.Fatal("Update(Esc) returned a nil cmd, want goBack()")
+	}
+	if _, ok := cmd().(backMsg); !ok {
+		t.Errorf("Update(Esc) cmd produced %T, want backMsg", cmd())
+	}
+}
+
+// TestResultModel_Update_EnterSearchesAgain proves Enter has a single fixed
+// meaning - "look up another Pokémon" - regardless of how this screen was
+// reached (see docs/adr/0001).
+func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("Update(Enter) returned a nil cmd, want searchAgain()")
+	}
+	if _, ok := cmd().(searchAgainMsg); !ok {
+		t.Errorf("Update(Enter) cmd produced %T, want searchAgainMsg", cmd())
 	}
 }
 

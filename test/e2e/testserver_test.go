@@ -52,6 +52,45 @@ const pikachuSpeciesJSON = `{
 	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}]
 }`
 
+// charmanderPokemonJSON is served for /pokemon/charmander, so the Type
+// Roster -> Result flow (see type_roster_flow_test.go) exercises a real
+// lookupCmd the same way the Search Screen's flow does, not a shortcut.
+const charmanderPokemonJSON = `{
+	"id": 4,
+	"name": "charmander",
+	"height": 6,
+	"weight": 85,
+	"types": [{"type": {"name": "fire"}}],
+	"stats": [
+		{"base_stat": 39, "stat": {"name": "hp"}},
+		{"base_stat": 52, "stat": {"name": "attack"}},
+		{"base_stat": 43, "stat": {"name": "defense"}},
+		{"base_stat": 60, "stat": {"name": "special-attack"}},
+		{"base_stat": 50, "stat": {"name": "special-defense"}},
+		{"base_stat": 65, "stat": {"name": "speed"}}
+	],
+	"sprites": {"front_default": null}
+}`
+
+// fireTypeJSON is served for /type/fire: two real Pokémon (Charmander,
+// Charizard) plus one non-default variety (a Mega Charizard form) that the
+// Type Roster must filter out - see docs/adr/0002.
+const fireTypeJSON = `{
+	"pokemon": [
+		{"pokemon": {"name": "charmander", "url": "%[1]s/pokemon/4/"}},
+		{"pokemon": {"name": "charizard-mega-x", "url": "%[1]s/pokemon/10034/"}},
+		{"pokemon": {"name": "charizard", "url": "%[1]s/pokemon/6/"}}
+	]
+}`
+
+// generationOneJSON names Charmander's generation, so the Type Roster's
+// Generation column has real data to assert on for at least one row.
+const generationOneJSON = `{"name": "generation-i", "pokemon_species": [{"name": "charmander", "url": "%[1]s/pokemon-species/4/"}]}`
+
+// emptyGenerationJSON stands in for the other 8 generations: valid but
+// empty, since no e2e fixture Pokémon belongs to them.
+const emptyGenerationJSON = `{"name": "generation-empty", "pokemon_species": []}`
+
 func pikachuSpritePNG(t *testing.T) []byte {
 	t.Helper()
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -82,6 +121,9 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		case "pikachu":
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintf(w, pikachuPokemonJSONTemplate, baseURL)
+		case "charmander":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(charmanderPokemonJSON))
 		case "servererror":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:
@@ -100,6 +142,29 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
 		w.Write(sprite)
+	})
+	mux.HandleFunc("/type/{name}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.PathValue("name") {
+		case "fire":
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, fireTypeJSON, baseURL)
+		case "water":
+			// Reserved, like /pokemon/servererror, for exercising the Type
+			// Roster's Service Error path (see type_roster_flow_test.go) -
+			// a type-list fetch failing is never the user's mistake, so it
+			// can only ever be a Service Error, never a Lookup Error.
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+	mux.HandleFunc("/generation/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if r.PathValue("id") == "1" {
+			fmt.Fprintf(w, generationOneJSON, baseURL)
+			return
+		}
+		w.Write([]byte(emptyGenerationJSON))
 	})
 
 	server := httptest.NewServer(mux)
