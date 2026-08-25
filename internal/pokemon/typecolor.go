@@ -38,3 +38,23 @@ func TypeColor(typeName string) lipgloss.Color {
 	}
 	return defaultTypeColor
 }
+
+// allTypes is the canonical, stable-ordered list of the 18 real Pokémon
+// types (i.e. typeColors' keys, in a fixed display order) — Go map
+// iteration order is randomized, so anything that needs to list "every
+// type" (e.g. the Type Select Screen) must go through AllTypes rather than
+// ranging over typeColors directly.
+var allTypes = []string{
+	"normal", "fire", "water", "electric", "grass", "ice",
+	"fighting", "poison", "ground", "flying", "psychic", "bug",
+	"rock", "ghost", "dragon", "dark", "steel", "fairy",
+}
+
+// AllTypes returns the 18 real Pokémon types, normalized (lowercase, as
+// PokeAPI names them) and in a fixed display order. The caller owns the
+// returned slice.
+func AllTypes() []string {
+	out := make([]string, len(allTypes))
+	copy(out, allTypes)
+	return out
+}
