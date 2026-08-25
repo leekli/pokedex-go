@@ -15,6 +15,8 @@ National Dex Number, Lookup Error vs. Service Error, etc.), see
 ![Pokemon Charmander](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png)
 ![Pokemon Squirtle](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png)
 ![Pokemon Pikachu](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png)
+![Pokemon Mewtwo](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png)
+![Pokemon Mew](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png)
 
 ## Features
 
@@ -67,6 +69,12 @@ Dev Containers / GitHub Codespaces.
 
 ```sh
 go run ./cmd/pokedex-go
+```
+
+### Building the app
+
+```sh
+go build ./cmd/pokedex-go
 ```
 
 ## Testing
@@ -136,6 +144,47 @@ runtime environment-variable check, so it never runs by accident:
 ```sh
 POKEDEX_LIVE_TEST=1 go test -tags=live ./test/live/...
 ```
+
+## Architecture
+
+pokedex-go follows Bubble Tea's [Elm Architecture](https://github.com/charmbracelet/bubbletea#tutorial):
+a single root `Model` (`tui.App`) receives each event as a `Msg`, its
+`Update` returns a new `Model` plus an optional `Cmd` (an async side
+effect, e.g. a PokeAPI call), and `View` renders the current `Model` to a
+string every cycle. There's no shared mutable state — every screen
+transition and network result flows through this `Msg → Update → Cmd → Msg`
+loop, driven from `cmd/pokedex-go/main.go`, which just wires a
+`pokeapi.Client` into a `tui.App` and hands both to Bubble Tea.
+
+Layering is strict and one-directional: `internal/tui` is the only package
+that imports Bubble Tea, and `internal/pokeapi` is the only package that
+performs network I/O. Both build on `internal/pokemon` — pure query/name
+parsing, unit conversion, type colors, and the `StatBlock` type, with no
+knowledge of the TUI or the network. `internal/spriteart` (image → ANSI
+block art) is likewise pure, used only by `tui` to render a fetched sprite
+— see [Project layout](#project-layout) below.
+
+A Pokémon lookup — the app's one real workflow — moves through these
+layers like this:
+
+```mermaid
+flowchart LR
+    Splash -->|Enter| Search
+    Search -->|pokemon.ResolveQuery| Client["pokeapi.Client.Lookup"]
+    Client -->|HTTPS| PokeAPI[(pokeapi.co)]
+    Client -->|BuildStatBlock| Stat[pokemon.StatBlock]
+    Client -->|FetchSprite| Sprite[spriteart.Render]
+    Stat --> Msg[lookupResultMsg]
+    Sprite --> Msg
+    Msg -->|showResultMsg| Result
+    Result -->|Esc / Enter| Search
+```
+
+`pokeapi.Client.Lookup` resolves a National Dex Number via
+`GetSpecies` → `GetPokemon`, or a name via `GetPokemon` directly, and
+classifies any failure as a `*LookupError` (bad input) or `*ServiceError`
+(PokeAPI's fault) — see CONTEXT.md. A failed sprite fetch doesn't fail the
+whole lookup; the Result Screen just falls back to a "no sprite" message.
 
 ## Project layout
 
