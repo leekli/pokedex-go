@@ -170,6 +170,54 @@ func TestLookup_DexNumberChainsSpeciesThenPokemon(t *testing.T) {
 	}
 }
 
+// TestLookup_DexNumberSpeciesLookupFails proves a DexNumber query short-
+// circuits on a failed species lookup: GetPokemon must never be called, and
+// the species error (unmodified) is what Lookup returns.
+func TestLookup_DexNumberSpeciesLookupFails(t *testing.T) {
+	pokemonCalled := false
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon-species/9999", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	mux.HandleFunc("/pokemon/", func(w http.ResponseWriter, r *http.Request) {
+		pokemonCalled = true
+		w.WriteHeader(http.StatusOK)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	_, err := client.Lookup(context.Background(), pokemon.Query{Kind: pokemon.DexNumber, Value: "9999"})
+
+	var lookupErr *LookupError
+	if !errors.As(err, &lookupErr) {
+		t.Fatalf("Lookup error = %v (%T), want *LookupError from the failed species lookup", err, err)
+	}
+	if pokemonCalled {
+		t.Error("Lookup called /pokemon/ after GetSpecies failed; it should have short-circuited")
+	}
+}
+
+func TestGetSpecies_NoDefaultVariety(t *testing.T) {
+	const speciesWithNoDefaultJSON = `{
+		"id": 25,
+		"name": "pikachu",
+		"varieties": [
+			{"is_default": false, "pokemon": {"name": "pikachu-gmax"}}
+		]
+	}`
+	_, client := newFixtureServer(t, map[string]fixtureResponse{
+		"/pokemon-species/25": {status: http.StatusOK, body: speciesWithNoDefaultJSON},
+	})
+
+	_, err := client.GetSpecies(context.Background(), "25")
+
+	var serviceErr *ServiceError
+	if !errors.As(err, &serviceErr) {
+		t.Fatalf("GetSpecies error = %v (%T), want *ServiceError when no variety is marked default", err, err)
+	}
+}
+
 func TestLookup_NameQueryCallsPokemonDirectly(t *testing.T) {
 	speciesCalled := false
 	mux := http.NewServeMux()

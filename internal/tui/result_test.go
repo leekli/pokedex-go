@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/leekli/pokedex-go/internal/pokemon"
 )
 
@@ -113,5 +114,76 @@ func TestRenderStatBar(t *testing.T) {
 				t.Errorf("renderStatBar(maxBaseStat) filled = %d, want %d", filled, statBarWidth)
 			}
 		})
+	}
+}
+
+// TestResultModel_Update_NonKeyMsgIgnored proves a message that isn't a
+// key press (e.g. a stray tick from another screen) is simply ignored.
+func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil)
+
+	got, cmd := m.Update(struct{}{})
+
+	if cmd != nil {
+		t.Error("Update(non-KeyMsg) returned a non-nil cmd, want nil")
+	}
+	if got.View() != m.View() {
+		t.Error("Update(non-KeyMsg) changed the model, want it unchanged")
+	}
+}
+
+// TestResultModel_Update_EscAndEnterReturnToSearch proves both Esc and
+// Enter return to the Search Screen, directly checking the cmd's message
+// rather than only the rendered View (see result_navigation_test.go for the
+// full-flow e2e equivalent).
+func TestResultModel_Update_EscAndEnterReturnToSearch(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		key  tea.KeyMsg
+	}{
+		{"esc", tea.KeyMsg{Type: tea.KeyEsc}},
+		{"enter", tea.KeyMsg{Type: tea.KeyEnter}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newResultModel(testStatBlock(), nil)
+
+			_, cmd := m.Update(tt.key)
+
+			if cmd == nil {
+				t.Fatal("Update returned a nil cmd, want switchTo(screenSearch)")
+			}
+			msg, ok := cmd().(switchScreenMsg)
+			if !ok || msg.to != screenSearch {
+				t.Errorf("Update cmd produced %#v, want switchScreenMsg{to: screenSearch}", cmd())
+			}
+		})
+	}
+}
+
+func TestResultModel_Update_QQuits(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil)
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+
+	if cmd == nil {
+		t.Fatal(`Update("q") returned a nil cmd, want tea.Quit`)
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Errorf(`Update("q") cmd produced %T, want tea.QuitMsg`, cmd())
+	}
+}
+
+// TestResultModel_Update_UnhandledKeyNoOp proves a key with no binding on
+// this screen (there's no free-text input here) is simply ignored.
+func TestResultModel_Update_UnhandledKeyNoOp(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil)
+
+	got, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+
+	if cmd != nil {
+		t.Errorf(`Update("x") returned a non-nil cmd, want nil`)
+	}
+	if got.View() != m.View() {
+		t.Errorf(`Update("x") changed the model, want it unchanged`)
 	}
 }
