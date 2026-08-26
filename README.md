@@ -40,6 +40,12 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
   (color-coded per type), height and weight in imperial units (matching the
   original English games), and base stats (HP, Attack, Defense, Sp. Atk,
   Sp. Def, Speed).
+- **Pokédex Entry** — the classic Pokédex description text, preferring a
+  Generation I game version (Red, Blue, then Yellow) to match the app's
+  styling elsewhere.
+- **Weaknesses & Resistances** — every type that deals super effective, not
+  very effective, or no damage to this Pokémon, color-coded the same way as
+  its type badges.
 - **Keyboard and mouse** — every screen is fully keyboard-driven, and where
   your terminal reports mouse events, the same actions (clicking the Search
   by Type button, a type, a Pokémon row, or scrolling the roster) work with
