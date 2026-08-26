@@ -198,9 +198,25 @@ back to a "no sprite" message.
 The Type Roster Screen's own data comes from `Client.GetPokemonByType`
 (PokeAPI's `/type/{name}`, filtered down to real, dex-numbered Pokémon —
 see [`docs/adr/0002`](./docs/adr/0002-filter-type-roster-by-pokemon-id.md))
-plus `Client.GetGenerationIndex`, a nine-request, best-effort map built
-once and cached for the rest of the session rather than refetched on every
-type selected.
+plus `Client.GetGenerationIndex`, a nine-request, best-effort map of every
+generation.
+
+### Caching
+
+`Client` caches every successful PokeAPI response for its own lifetime
+(`internal/pokeapi/cache.go`) — the data PokeAPI serves doesn't meaningfully
+change within a single run of the app, so re-fetching it is pure waste.
+`GetPokemon`, `GetSpecies`, `GetPokemonByType`, and `GetGenerationIndex`
+each cache their result keyed by whatever they were called with (name, dex
+number, type name); `FetchSprite` caches the already-*decoded* image by
+URL, skipping the PNG decode too on a repeat. In practice this means
+re-searching a Pokémon, revisiting a Type Roster, or returning to a
+previously viewed Result Screen never re-hits the network. A failed
+request (`*LookupError` or `*ServiceError`) is never cached, since a typo
+might be about to be corrected or an outage might have since passed — only
+successes are safe to remember. The cache is purely in-memory and is
+discarded when the app exits; there's no persistence and nothing to
+invalidate.
 
 ## Project layout
 

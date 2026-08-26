@@ -27,6 +27,17 @@ import Bubble Tea, and only `internal/pokeapi` may perform network I/O.
 imports). If a change seems to need crossing one of these, that's a signal
 to reshape the change rather than the boundary.
 
+## Caching
+
+`internal/pokeapi.Client` caches every successful response for its own
+lifetime (`internal/pokeapi/cache.go`) — PokeAPI's data doesn't meaningfully
+change within a session, so re-fetching it is pure waste. When adding a new
+`Client` method that fetches from PokeAPI, cache its result the same way:
+populate the cache on success only, keyed by whatever string/id the request
+was made with. Never cache a `*LookupError` or `*ServiceError` — a failure
+may not hold true on retry (a corrected typo, a resolved outage), so only
+successes are safe to remember for the rest of the session.
+
 ## Commit messages
 
 This repo follows Conventional Commits: `type(scope): description`, e.g.
