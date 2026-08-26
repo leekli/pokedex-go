@@ -19,6 +19,9 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
 ![Pokemon Mewtwo](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png)
 ![Pokemon Mew](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png)
 
+> [!NOTE]
+> This is my project built learning & using Agentic AI (Claude Code).
+
 ## Features
 
 - **Splash Screen** — a hand-crafted ASCII/ANSI "POKEDEX" logo, embedded in
@@ -126,39 +129,6 @@ go test ./internal/tui/...
 # error paths), driven via Bubble Tea's teatest against a local mock:
 go test ./test/e2e/...
 ```
-
-### Coverage
-
-`internal/pokemon`, `internal/spriteart`, and `internal/pokeapi` sit at
-100% statement coverage on their own. `internal/tui` reports ~93% from its
-own unit tests (`go test ./internal/tui/... -cover`); the remaining lines —
-mostly `App`/screen-model `Update` branches that only fire mid-animation or
-mid-lookup — are exercised by `test/e2e`'s full-flow runs instead of being
-duplicated at the unit level. Combined
-(`go test -coverpkg=./internal/... ./...`), the suite reaches 100% of
-`internal/...` statements.
-
-Mouse hit-testing (the Search by Type button, the Type Select list, the
-Type Roster's scroll wheel) is unit-tested directly against a real
-`*zone.Manager` (see `internal/tui/zones.go`), same layer as everything
-else in `internal/tui` — no separate mouse-specific test tooling.
-
-Every file under `internal/tui/` (including `splash.go` and
-`splash_legend.go`) has direct unit-test coverage of its pure
-logic — `sweepProgress`, `Update`'s key/tick handling, `blendHex`,
-`sweepColor`, `hexRGB`, `lerpByte`, `widestLine`. What's *not* re-tested at
-the unit level is pixel-exact ANSI output (`renderSplashArtSweep`'s styled
-string, lipgloss table borders, etc.) — those are covered by `test/e2e`
-asserting on the substrings that matter (e.g. `"POKÉDEX SEARCH"`, a
-Pokémon's stat block) against a real terminal-sized render, which is a
-better tool for "does the screen show the right thing" than pinning exact
-ANSI escape sequences in a unit test would be.
-
-`cmd/pokedex-go/main.go` (0% coverage) is intentionally excluded: it's a
-five-line entrypoint that wires an already-tested `pokeapi.Client` into an
-already-tested `tui.App` and hands both to Bubble Tea's `Program.Run()` —
-there's no branching logic of its own to test, and exercising it would mean
-driving a real OS terminal program rather than testing this app's code.
 
 ### Live smoke test (opt-in, not part of the default suite)
 
