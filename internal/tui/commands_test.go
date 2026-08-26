@@ -235,6 +235,136 @@ func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry(t *testing.T)
 	}
 }
 
+// lookupCmdElectricTypeJSON is Electric's real type chart (weak to Ground;
+// resists Electric, Flying, Steel), used to prove lookupCmd's single-type
+// (Pikachu) path.
+const lookupCmdElectricTypeJSON = `{
+	"pokemon": [],
+	"damage_relations": {
+		"double_damage_from": [{"name": "ground"}],
+		"half_damage_from": [{"name": "electric"}, {"name": "flying"}, {"name": "steel"}],
+		"no_damage_from": []
+	}
+}`
+
+// TestLookupCmd_IncludesTypeEffectiveness proves a successful lookup
+// populates lookupResultMsg.typeEffectiveness from Pikachu's single
+// (Electric) type.
+func TestLookupCmd_IncludesTypeEffectiveness(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdElectricTypeJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.typeEffectiveness == nil {
+		t.Fatal("lookupResultMsg.typeEffectiveness = nil, want a populated result")
+	}
+	if len(msg.typeEffectiveness.Weaknesses) != 1 || msg.typeEffectiveness.Weaknesses[0].Type != "ground" {
+		t.Errorf("Weaknesses = %+v, want [{ground 2}]", msg.typeEffectiveness.Weaknesses)
+	}
+}
+
+// TestLookupCmd_TypeEffectivenessUnavailableOnFetchFailure proves a failed
+// damage-relations fetch leaves typeEffectiveness nil - unlike the sprite
+// and Pokédex Entry, this is not best-effort: see
+// docs/adr/0004-all-or-nothing-type-effectiveness.md.
+func TestLookupCmd_TypeEffectivenessUnavailableOnFetchFailure(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil (a failed type effectiveness fetch must not fail the lookup)", msg.err)
+	}
+	if msg.typeEffectiveness != nil {
+		t.Errorf("lookupResultMsg.typeEffectiveness = %+v, want nil after a failed damage relations fetch", msg.typeEffectiveness)
+	}
+}
+
+// lookupCmdCharizardJSONTemplate is a dual-type (Fire/Flying) fixture, used
+// only to prove the all-or-nothing behavior across two types - see
+// TestLookupCmd_DualTypePartialFailureOmitsEffectivenessEntirely.
+const lookupCmdCharizardJSONTemplate = `{
+	"id": 6,
+	"name": "charizard",
+	"height": 17,
+	"weight": 905,
+	"types": [{"type": {"name": "fire"}}, {"type": {"name": "flying"}}],
+	"stats": [{"base_stat": 78, "stat": {"name": "hp"}}],
+	"sprites": {"front_default": null}
+}`
+
+// lookupCmdFireTypeJSON is Fire's real type chart, needed alongside
+// lookupCmdCharizardJSONTemplate below (this package can't reach the
+// pokeapi package's own equivalent test fixture).
+const lookupCmdFireTypeJSON = `{
+	"pokemon": [],
+	"damage_relations": {
+		"double_damage_from": [{"name": "water"}, {"name": "ground"}, {"name": "rock"}],
+		"half_damage_from": [{"name": "fire"}, {"name": "grass"}, {"name": "ice"}, {"name": "bug"}, {"name": "steel"}, {"name": "fairy"}],
+		"no_damage_from": []
+	}
+}`
+
+// TestLookupCmd_DualTypePartialFailureOmitsEffectivenessEntirely proves
+// that when only one of a dual-type Pokémon's two damage-relations fetches
+// fails, the whole result is unavailable rather than a partial chart built
+// from just the type that succeeded - see
+// docs/adr/0004-all-or-nothing-type-effectiveness.md.
+func TestLookupCmd_DualTypePartialFailureOmitsEffectivenessEntirely(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/charizard", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdCharizardJSONTemplate))
+	})
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdFireTypeJSON))
+	})
+	mux.HandleFunc("/type/flying", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	cmd := lookupCmd(client, pokemon.Query{Kind: pokemon.Name, Value: "charizard"})
+	msg, ok := cmd().(lookupResultMsg)
+	if !ok {
+		t.Fatalf("lookupCmd() produced %T, want lookupResultMsg", cmd())
+	}
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.typeEffectiveness != nil {
+		t.Errorf("lookupResultMsg.typeEffectiveness = %+v, want nil (Fire succeeded but Flying failed, so nothing should be shown)", msg.typeEffectiveness)
+	}
+}
+
 // TestLookupCmd_LookupError proves a failed PokeAPI lookup is surfaced as
 // lookupResultMsg.err, unmodified, with no stat block.
 func TestLookupCmd_LookupError(t *testing.T) {

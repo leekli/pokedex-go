@@ -1,0 +1,10 @@
+# Treat a partial type-effectiveness fetch as entirely unavailable
+
+Computing a dual-type Pokémon's Weaknesses & Resistances (see CONTEXT.md) needs damage relations for every one of its types — `GetTypeDamageRelations` once per type, then combined by `BuildTypeEffectiveness`. Every other best-effort fetch in this app (the sprite, the Pokédex Entry, the generation index) degrades by showing less: a failed sprite fetch shows no sprite, a failed species fetch shows no Pokédex Entry, one failed generation fetch simply leaves that generation blank in an otherwise-complete index.
+
+Type effectiveness can't degrade the same way. If one of a dual-type Pokémon's two damage-relations fetches fails, showing only the other type's matchups isn't a smaller *correct* answer — it can be an outright *wrong* one: a type that would have been cancelled to neutral, or flipped from a weakness into an immunity, by the missing type's relations would show up as if the missing type didn't exist at all (see `BuildTypeEffectiveness`'s Ice-cancels-to-neutral and Ground-immunity-overrides-weakness test cases for real examples of exactly this kind of interaction, both drawn from Charizard's actual Fire/Flying type chart). Showing confidently wrong game data is worse than showing nothing, so `lookupCmd` treats any one relation fetch failing as the whole result being unavailable — the Result Screen falls back to "Weaknesses & resistances unavailable" rather than a partial table.
+
+## Considered options
+
+- **Show whatever succeeded, silently drop the failed type's contribution**: matches every other best-effort fetch in this app, but risks showing an incorrect chart with no indication anything is missing; rejected as worse than showing nothing.
+- **Show whatever succeeded, with a visible "(incomplete)" caveat**: preserves partial information, but a caveat easy to miss doesn't fix the underlying problem of showing numbers that could be flatly wrong rather than just incomplete; rejected as not meaningfully safer than the option above.

@@ -15,7 +15,7 @@ import (
 const lookupTimeout = 10 * time.Second
 
 // lookupCmd resolves q against PokeAPI and reports the outcome as a
-// lookupResultMsg. Both the sprite fetch and the Pokédex Entry fetch are
+// lookupResultMsg. The sprite fetch and the Pokédex Entry fetch are
 // best-effort: a failure in either leaves that field blank (image.Image nil
 // / string "") rather than failing the overall lookup, since a missing
 // sprite or description is never worse than losing an otherwise-successful
@@ -25,6 +25,9 @@ const lookupTimeout = 10 * time.Second
 // so it costs no extra network round trip; for a Name query it's a genuine
 // second request, since Lookup skips species entirely in that case. See
 // docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
+//
+// Type effectiveness is different: it's all-or-nothing, not best-effort -
+// see typeEffectivenessFor and docs/adr/0004-all-or-nothing-type-effectiveness.md.
 func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
@@ -49,8 +52,34 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 			pokedexEntry = pokeapi.SelectPokedexEntry(species.FlavorTextEntries)
 		}
 
-		return lookupResultMsg{stat: stat, sprite: sprite, pokedexEntry: pokedexEntry}
+		typeEffectiveness := typeEffectivenessFor(ctx, client, p.Types)
+
+		return lookupResultMsg{
+			stat:              stat,
+			sprite:            sprite,
+			pokedexEntry:      pokedexEntry,
+			typeEffectiveness: typeEffectiveness,
+		}
 	}
+}
+
+// typeEffectivenessFor fetches damage relations for every one of types (1
+// or 2) and combines them via pokeapi.BuildTypeEffectiveness. Returns nil
+// if any one type's relations fail to fetch — see
+// docs/adr/0004-all-or-nothing-type-effectiveness.md on why a partial
+// result isn't returned instead. Fetches run sequentially: at most 2
+// requests, not worth GetGenerationIndex's concurrent-fan-out treatment.
+func typeEffectivenessFor(ctx context.Context, client *pokeapi.Client, types []string) *pokemon.TypeEffectiveness {
+	relations := make([]pokeapi.TypeDamageRelations, 0, len(types))
+	for _, t := range types {
+		r, err := client.GetTypeDamageRelations(ctx, t)
+		if err != nil {
+			return nil
+		}
+		relations = append(relations, r)
+	}
+	effectiveness := pokeapi.BuildTypeEffectiveness(relations...)
+	return &effectiveness
 }
 
 // typeRosterTimeout bounds a Type Roster Screen load: the type's pokemon

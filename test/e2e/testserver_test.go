@@ -81,13 +81,34 @@ const charmanderPokemonJSON = `{
 
 // fireTypeJSON is served for /type/fire: two real Pokémon (Charmander,
 // Charizard) plus one non-default variety (a Mega Charizard form) that the
-// Type Roster must filter out - see docs/adr/0002.
+// Type Roster must filter out - see docs/adr/0002. Its damage_relations is
+// Fire's real type chart, so Charmander's Result Screen (reached via
+// type_roster_flow_test.go) exercises Weaknesses & Resistances too, sharing
+// this same fetch with the Type Roster's own GetPokemonByType call - see
+// getTypeDetails.
 const fireTypeJSON = `{
 	"pokemon": [
 		{"pokemon": {"name": "charmander", "url": "%[1]s/pokemon/4/"}},
 		{"pokemon": {"name": "charizard-mega-x", "url": "%[1]s/pokemon/10034/"}},
 		{"pokemon": {"name": "charizard", "url": "%[1]s/pokemon/6/"}}
-	]
+	],
+	"damage_relations": {
+		"double_damage_from": [{"name": "water"}, {"name": "ground"}, {"name": "rock"}],
+		"half_damage_from": [{"name": "fire"}, {"name": "grass"}, {"name": "ice"}, {"name": "bug"}, {"name": "steel"}, {"name": "fairy"}],
+		"no_damage_from": []
+	}
+}`
+
+// electricTypeJSON is served for /type/electric: Pikachu's type, so the
+// Search flow's Weaknesses & Resistances section has real data (Electric is
+// weak to Ground; resists Electric, Flying, Steel).
+const electricTypeJSON = `{
+	"pokemon": [],
+	"damage_relations": {
+		"double_damage_from": [{"name": "ground"}],
+		"half_damage_from": [{"name": "electric"}, {"name": "flying"}, {"name": "steel"}],
+		"no_damage_from": []
+	}
 }`
 
 // generationOneJSON names Charmander's generation, so the Type Roster's
@@ -160,6 +181,9 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		case "fire":
 			w.WriteHeader(http.StatusOK)
 			fmt.Fprintf(w, fireTypeJSON, baseURL)
+		case "electric":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(electricTypeJSON))
 		case "water":
 			// Reserved, like /pokemon/servererror, for exercising the Type
 			// Roster's Service Error path (see type_roster_flow_test.go) -

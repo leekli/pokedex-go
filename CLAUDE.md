@@ -38,6 +38,13 @@ was made with. Never cache a `*LookupError` or `*ServiceError` — a failure
 may not hold true on retry (a corrected typo, a resolved outage), so only
 successes are safe to remember for the rest of the session.
 
+If a new method reads a resource another method already fetches (e.g.
+`GetTypeDamageRelations` reads the same `/type/{name}` response
+`GetPokemonByType` does), share one cached fetch between them rather than
+adding a second cache map for the same underlying resource — see
+`getTypeDetails` for the pattern: one private fetch+cache function, two
+public methods that each return their own slice of its result.
+
 ## Commit messages
 
 This repo follows Conventional Commits: `type(scope): description`, e.g.

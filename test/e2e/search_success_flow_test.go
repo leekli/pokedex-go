@@ -22,7 +22,8 @@ func TestSearch_SuccessfulLookupByNameShowsResultScreen(t *testing.T) {
 		// since the Result Screen word-wraps the Pokédex Entry to the
 		// card's width and the wrap point would otherwise land mid-string.
 		"When several of these Pokémon gather, their",
-		"electricity could build and cause lightning storms.")
+		"electricity could build and cause lightning storms.",
+		"Weak to", "Ground", "Resists")
 }
 
 func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
@@ -38,7 +39,8 @@ func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
 		// since the Result Screen word-wraps the Pokédex Entry to the
 		// card's width and the wrap point would otherwise land mid-string.
 		"When several of these Pokémon gather, their",
-		"electricity could build and cause lightning storms.")
+		"electricity could build and cause lightning storms.",
+		"Weak to", "Ground", "Resists")
 }
 
 // advanceToSearchScreen presses Enter on the Splash Screen and waits for the

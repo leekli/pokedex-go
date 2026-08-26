@@ -39,9 +39,12 @@ var (
 			BorderForeground(lipgloss.Color(pokemonYellow)).
 			Padding(0, 1)
 
-	resultCenterStyle   = lipgloss.NewStyle().Width(resultCardWidth).Align(lipgloss.Center)
-	resultEntryStyle    = lipgloss.NewStyle().Width(resultCardWidth)
-	noPokedexEntryStyle = lipgloss.NewStyle().Faint(true).Italic(true)
+	resultCenterStyle = lipgloss.NewStyle().Width(resultCardWidth).Align(lipgloss.Center)
+	resultEntryStyle  = lipgloss.NewStyle().Width(resultCardWidth)
+	// resultFallbackStyle marks any "no data available" message on the
+	// card (no sprite, no Pokédex Entry, no type effectiveness) as
+	// distinct from real content.
+	resultFallbackStyle = lipgloss.NewStyle().Faint(true).Italic(true)
 
 	statTableBorderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#30363D"))
 	statTableHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#6E7681"))
@@ -67,13 +70,19 @@ var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychi
 // card - echoing the Search Screen's input box - with the base stats laid
 // out as a table of colored bars.
 type resultModel struct {
-	stat         pokemon.StatBlock
-	sprite       image.Image
-	pokedexEntry string
+	stat              pokemon.StatBlock
+	sprite            image.Image
+	pokedexEntry      string
+	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func newResultModel(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string) resultModel {
-	return resultModel{stat: stat, sprite: sprite, pokedexEntry: pokedexEntry}
+func newResultModel(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
+	return resultModel{
+		stat:              stat,
+		sprite:            sprite,
+		pokedexEntry:      pokedexEntry,
+		typeEffectiveness: typeEffectiveness,
+	}
 }
 
 // Update handles the Result Screen's keys directly: Esc goes back to
@@ -103,7 +112,7 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.pokedexEntry)))
+	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.pokedexEntry, m.typeEffectiveness)))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
@@ -113,10 +122,12 @@ func (m resultModel) View() string {
 // renderResultCard renders the card's interior: title, sprite (or its "no
 // sprite" fallback), type badges, the Pokédex Entry (or its own fallback -
 // see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
-// height/weight, a small dot flourish, and the base stats table -
-// everything CONTEXT.md's Stat Block already shows, just restyled, plus the
-// Pokédex Entry alongside it.
-func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string) string {
+// Weaknesses & Resistances (or its own fallback - see
+// docs/adr/0004-all-or-nothing-type-effectiveness.md), height/weight, a
+// small dot flourish, and the base stats table - everything CONTEXT.md's
+// Stat Block already shows, just restyled, plus the two sections alongside
+// it.
+func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
@@ -137,8 +148,11 @@ func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry s
 	if pokedexEntry != "" {
 		b.WriteString(resultEntryStyle.Render(pokedexEntry))
 	} else {
-		b.WriteString(resultEntryStyle.Render(noPokedexEntryStyle.Render("No Pokédex entry available.")))
+		b.WriteString(resultEntryStyle.Render(resultFallbackStyle.Render("No Pokédex entry available.")))
 	}
+	b.WriteString("\n\n")
+
+	b.WriteString(renderTypeEffectiveness(typeEffectiveness))
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderHeightWeight(stat)))
@@ -157,6 +171,75 @@ func renderHeightWeight(stat pokemon.StatBlock) string {
 	weight := fmt.Sprintf("%.1f lbs", stat.WeightPounds)
 	return resultLabelStyle.Render("Height") + "   " + height +
 		"      " + resultLabelStyle.Render("Weight") + "   " + weight
+}
+
+// renderTypeEffectiveness renders the Weaknesses & Resistances section (see
+// CONTEXT.md): every type that deals super effective, not very effective,
+// or no damage to this Pokémon, color-coded the same way as its Type
+// Badges. nil (any of the Pokémon's own types' damage relations failed to
+// fetch) shows a fallback message instead of a possibly-wrong partial
+// chart - see docs/adr/0004-all-or-nothing-type-effectiveness.md.
+func renderTypeEffectiveness(te *pokemon.TypeEffectiveness) string {
+	if te == nil {
+		return resultEntryStyle.Render(resultFallbackStyle.Render("Weaknesses & resistances unavailable."))
+	}
+
+	var b strings.Builder
+	b.WriteString(resultLabelStyle.Render("Weak to") + "    " + renderMatchups(te.Weaknesses))
+	b.WriteString("\n")
+	b.WriteString(resultLabelStyle.Render("Resists") + "    " + renderMatchups(te.Resistances))
+	if len(te.Immunities) > 0 {
+		b.WriteString("\n")
+		b.WriteString(resultLabelStyle.Render("Immune to") + "  " + renderTypeNames(te.Immunities))
+	}
+	return resultEntryStyle.Render(b.String())
+}
+
+// renderMatchups renders a list of TypeMatchups as "Type Nx" pairs, each
+// type name colored via pokemon.TypeColor, or "None" for an empty list
+// (a Pokémon can genuinely have zero weaknesses, or zero resistances).
+func renderMatchups(matchups []pokemon.TypeMatchup) string {
+	if len(matchups) == 0 {
+		return "None"
+	}
+	parts := make([]string, len(matchups))
+	for i, m := range matchups {
+		style := lipgloss.NewStyle().Foreground(pokemon.TypeColor(m.Type))
+		parts[i] = style.Render(capitalize(m.Type)) + " " + formatMultiplier(m.Multiplier)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// renderTypeNames renders a list of type names, each colored via
+// pokemon.TypeColor - used for Immunities, which (unlike Weaknesses and
+// Resistances) has no multiplier to show alongside the name.
+func renderTypeNames(types []string) string {
+	parts := make([]string, len(types))
+	for i, t := range types {
+		style := lipgloss.NewStyle().Foreground(pokemon.TypeColor(t))
+		parts[i] = style.Render(capitalize(t))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// formatMultiplier renders a type effectiveness multiplier the way real
+// Pokédex UIs do (×, ½, ¼) rather than as a raw float. With at most two of
+// a Pokémon's own types combined, the multiplier is always one of these
+// four values - the default case only guards against a future change to
+// BuildTypeEffectiveness's combination math.
+func formatMultiplier(m float64) string {
+	switch m {
+	case 4:
+		return "4×"
+	case 2:
+		return "2×"
+	case 0.5:
+		return "½×"
+	case 0.25:
+		return "¼×"
+	default:
+		return fmt.Sprintf("%g×", m)
+	}
 }
 
 func renderTypeBadges(types []string) string {

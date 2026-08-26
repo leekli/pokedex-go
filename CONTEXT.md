@@ -44,6 +44,10 @@ _Avoid_: Stats panel, info block, stat sheet
 A colored label for one of a Pokémon's types (e.g. Fire, Water, Grass), styled with that type's conventional color from official Pokédex UIs. Up to two appear per Pokémon in the Stat Block.
 _Avoid_: Type tag, type pill
 
+**Weaknesses & Resistances**:
+The Result Screen's summary of every type that deals super effective (Weaknesses), not very effective (Resistances), or no damage at all (Immunities) to this Pokémon, computed by combining each of its Type(s)' PokeAPI damage relations — see [`docs/adr/0004`](./docs/adr/0004-all-or-nothing-type-effectiveness.md). Distinct from a Type Badge, which shows the Pokémon's own types rather than what's effective against it. Unlike the Sprite and Pokédex Entry, this is all-or-nothing rather than best-effort: if any one of a Pokémon's types' damage relations fails to fetch, the whole section shows a fallback message rather than a chart that could be silently wrong.
+_Avoid_: Type chart, damage relations, super-effective list, matchups
+
 **Search by Type button**:
 An interactive control on the Search Screen, beneath the name/number input, that leads to the Type Select Screen. Reachable by keyboard (Tab from the input, then Enter/Space) or, where the terminal supports it, a mouse click.
 _Avoid_: Type search button, Browse by type

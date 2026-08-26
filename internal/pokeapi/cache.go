@@ -10,8 +10,10 @@ import (
 // the timescale of years, not a single run of this app, so nothing here
 // ever expires or is invalidated — caching just avoids re-fetching (and, for
 // sprites, re-decoding) the same resource twice in one session. See
-// GetPokemon, GetSpecies, GetPokemonByType, FetchSprite, and
-// GetGenerationIndex for where each map is read and populated.
+// GetPokemon, GetSpecies, FetchSprite, and GetGenerationIndex for where
+// each map is read and populated; types is shared by GetPokemonByType and
+// GetTypeDamageRelations, which both read the same /type/{name} resource -
+// see getTypeDetails.
 //
 // A failed request is never cached: a *LookupError may be a typo the user
 // is about to correct, and a *ServiceError is transient by definition —
@@ -28,16 +30,16 @@ type cache struct {
 	mu          sync.Mutex
 	pokemon     map[string]Pokemon
 	species     map[string]Species
-	typeRosters map[string][]TypeRosterEntry
+	types       map[string]typeDetails
 	sprites     map[string]image.Image
 	generations map[int]string // nil until GetGenerationIndex has run once
 }
 
 func newCache() *cache {
 	return &cache{
-		pokemon:     make(map[string]Pokemon),
-		species:     make(map[string]Species),
-		typeRosters: make(map[string][]TypeRosterEntry),
-		sprites:     make(map[string]image.Image),
+		pokemon: make(map[string]Pokemon),
+		species: make(map[string]Species),
+		types:   make(map[string]typeDetails),
+		sprites: make(map[string]image.Image),
 	}
 }

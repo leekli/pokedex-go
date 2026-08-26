@@ -156,8 +156,9 @@ from `cmd/pokedex-go/main.go`, which just wires a `pokeapi.Client` into a
 Layering is strict and one-directional: `internal/tui` is the only package
 that imports Bubble Tea, and `internal/pokeapi` is the only package that
 performs network I/O. Both build on `internal/pokemon` — pure query/name
-parsing, unit conversion, type colors, and the `StatBlock` type, with no
-knowledge of the TUI or the network. `internal/spriteart` (image → ANSI
+parsing, unit conversion, type colors, and plain data types like
+`StatBlock` and `TypeEffectiveness`, with no knowledge of the TUI or the
+network. `internal/spriteart` (image → ANSI
 block art) is likewise pure, used only by `tui` to render a fetched sprite
 — see [Project layout](#project-layout) below. Mouse support is layered on
 the same way: [bubblezone](https://github.com/lrstanley/bubblezone) tags
@@ -191,32 +192,51 @@ Both paths into the Result Screen end up calling the same
 `pokeapi.Client.Lookup`: a National Dex Number resolves via `GetSpecies` →
 `GetPokemon`, a name (typed, or picked off a Type Roster row) calls
 `GetPokemon` directly. Any failure is classified as a `*LookupError` (bad
-input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. A failed
-sprite fetch doesn't fail the whole lookup; the Result Screen just falls
-back to a "no sprite" message.
+input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. `lookupCmd`
+then makes further, per-Pokémon fetches for the Result Screen's other
+sections, each with its own failure contract:
+
+- **Sprite** and **Pokédex Entry** are best-effort — a failed fetch just
+  shows that section's fallback message ("No sprite available" /
+  "No Pokédex entry available.") rather than failing the whole lookup. The
+  Pokédex Entry prefers a Generation I game version where one exists — see
+  [`docs/adr/0003`](./docs/adr/0003-prefer-generation-1-pokedex-entry-version.md).
+- **Weaknesses & Resistances** is all-or-nothing instead: it needs a
+  `GetTypeDamageRelations` call per one of the Pokémon's types (1 or 2),
+  combined by `pokeapi.BuildTypeEffectiveness`, and if any one of those
+  calls fails the whole section falls back to "unavailable" rather than
+  risk showing a partial chart that could be outright wrong (a missing
+  type can flip a resistance into a weakness, or cancel one out entirely)
+  — see [`docs/adr/0004`](./docs/adr/0004-all-or-nothing-type-effectiveness.md).
 
 The Type Roster Screen's own data comes from `Client.GetPokemonByType`
 (PokeAPI's `/type/{name}`, filtered down to real, dex-numbered Pokémon —
 see [`docs/adr/0002`](./docs/adr/0002-filter-type-roster-by-pokemon-id.md))
 plus `Client.GetGenerationIndex`, a nine-request, best-effort map of every
-generation.
+generation. `GetPokemonByType` reads the same `/type/{name}` resource as
+`GetTypeDamageRelations` above, so browsing a Type Roster and then looking
+up one of its Pokémon never fetches that type's data twice — see
+[Caching](#caching) below.
 
 ### Caching
 
 `Client` caches every successful PokeAPI response for its own lifetime
 (`internal/pokeapi/cache.go`) — the data PokeAPI serves doesn't meaningfully
 change within a single run of the app, so re-fetching it is pure waste.
-`GetPokemon`, `GetSpecies`, `GetPokemonByType`, and `GetGenerationIndex`
-each cache their result keyed by whatever they were called with (name, dex
-number, type name); `FetchSprite` caches the already-*decoded* image by
-URL, skipping the PNG decode too on a repeat. In practice this means
-re-searching a Pokémon, revisiting a Type Roster, or returning to a
-previously viewed Result Screen never re-hits the network. A failed
-request (`*LookupError` or `*ServiceError`) is never cached, since a typo
-might be about to be corrected or an outage might have since passed — only
-successes are safe to remember. The cache is purely in-memory and is
-discarded when the app exits; there's no persistence and nothing to
-invalidate.
+`GetPokemon`, `GetSpecies`, and `GetGenerationIndex` each cache their
+result keyed by whatever they were called with (name, dex number);
+`FetchSprite` caches the already-*decoded* image by URL, skipping the PNG
+decode too on a repeat. `GetPokemonByType` and `GetTypeDamageRelations` go
+further and share one cached fetch per type name, since both read the same
+`/type/{name}` resource — whichever of the two is called first fetches it,
+and the other reads the same cached result rather than triggering a second
+request. In practice this means re-searching a Pokémon, revisiting a Type
+Roster, or returning to a previously viewed Result Screen never re-hits the
+network. A failed request (`*LookupError` or `*ServiceError`) is never
+cached, since a typo might be about to be corrected or an outage might have
+since passed — only successes are safe to remember. The cache is purely
+in-memory and is discarded when the app exits; there's no persistence and
+nothing to invalidate.
 
 ## Project layout
 
