@@ -19,6 +19,7 @@ const defaultBaseURL = "https://pokeapi.co/api/v2"
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+	cache      *cache
 }
 
 // Option configures a Client constructed by NewClient.
@@ -41,6 +42,7 @@ func NewClient(opts ...Option) *Client {
 	c := &Client{
 		baseURL:    defaultBaseURL,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
+		cache:      newCache(),
 	}
 	for _, opt := range opts {
 		opt(c)

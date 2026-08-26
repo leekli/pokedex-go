@@ -101,6 +101,40 @@ func TestFetchSprite_TransportError(t *testing.T) {
 	}
 }
 
+// TestFetchSprite_CachesAcrossCalls proves a second FetchSprite call for the
+// same URL returns the exact decoded image already cached, rather than
+// re-downloading and re-decoding it.
+func TestFetchSprite_CachesAcrossCalls(t *testing.T) {
+	hits := 0
+	sprite := fixturePNG(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(sprite)
+	}))
+	t.Cleanup(server.Close)
+
+	client := NewClient(WithBaseURL(server.URL))
+	url := server.URL + "/sprites/pikachu.png"
+
+	first, err := client.FetchSprite(context.Background(), url)
+	if err != nil {
+		t.Fatalf("first FetchSprite returned error: %v", err)
+	}
+	second, err := client.FetchSprite(context.Background(), url)
+	if err != nil {
+		t.Fatalf("second FetchSprite returned error: %v", err)
+	}
+
+	if hits != 1 {
+		t.Errorf("sprite server was hit %d times, want 1 (second call should be served from cache)", hits)
+	}
+	if second != first {
+		t.Error("cached FetchSprite returned a different image value, want the exact same decoded image reused")
+	}
+}
+
 // TestFetchSprite_InvalidURL proves a malformed URL (fails at
 // http.NewRequestWithContext, before any network I/O) is still surfaced as
 // a ServiceError rather than a raw url.Parse error escaping the client.

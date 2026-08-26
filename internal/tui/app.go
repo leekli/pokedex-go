@@ -103,9 +103,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case showTypeRosterMsg:
 		a.history = append(a.history, a.screen)
-		a.typeRoster = newTypeRosterModel(a.search.client, msg.typeName, a.typeRoster.generations)
+		a.typeRoster = newTypeRosterModel(a.search.client, msg.typeName)
 		a.screen = screenTypeRoster
-		return a, loadTypeRosterCmd(a.search.client, msg.typeName, a.typeRoster.generations)
+		return a, loadTypeRosterCmd(a.search.client, msg.typeName)
 
 	case showResultMsg:
 		a.history = append(a.history, a.screen)

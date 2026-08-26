@@ -35,8 +35,16 @@ const nonDefaultVarietyIDFloor = 10000
 
 // GetPokemonByType fetches every real, dex-numbered Pokémon of the given
 // type (as returned by PokeAPI's own /type/{name} name, e.g. "fire"),
-// sorted by National Dex Number ascending.
+// sorted by National Dex Number ascending. The result is cached for the
+// rest of the Client's lifetime (see cache's doc comment).
 func (c *Client) GetPokemonByType(ctx context.Context, typeName string) ([]TypeRosterEntry, error) {
+	c.cache.mu.Lock()
+	cached, ok := c.cache.typeRosters[typeName]
+	c.cache.mu.Unlock()
+	if ok {
+		return cached, nil
+	}
+
 	var dto typeDTO
 	if err := c.get(ctx, "/type/"+typeName, typeName, &dto); err != nil {
 		return nil, err
@@ -52,6 +60,10 @@ func (c *Client) GetPokemonByType(ctx context.Context, typeName string) ([]TypeR
 	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].DexNumber < entries[j].DexNumber })
+
+	c.cache.mu.Lock()
+	c.cache.typeRosters[typeName] = entries
+	c.cache.mu.Unlock()
 	return entries, nil
 }
 

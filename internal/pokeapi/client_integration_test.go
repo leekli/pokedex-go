@@ -218,6 +218,103 @@ func TestGetSpecies_NoDefaultVariety(t *testing.T) {
 	}
 }
 
+// TestGetPokemon_CachesAcrossCalls proves a second GetPokemon call for the
+// same name is served from the Client's cache rather than hitting PokeAPI
+// again - see cache's doc comment on why this is safe given PokeAPI data
+// effectively never changes.
+func TestGetPokemon_CachesAcrossCalls(t *testing.T) {
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(pikachuPokemonJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	first, err := client.GetPokemon(context.Background(), "pikachu")
+	if err != nil {
+		t.Fatalf("first GetPokemon returned error: %v", err)
+	}
+	second, err := client.GetPokemon(context.Background(), "pikachu")
+	if err != nil {
+		t.Fatalf("second GetPokemon returned error: %v", err)
+	}
+
+	if hits != 1 {
+		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
+	}
+	if second.ID != first.ID || second.Name != first.Name {
+		t.Errorf("cached GetPokemon = %+v, want the same result as the first call %+v", second, first)
+	}
+}
+
+// TestGetPokemon_ErrorsAreNotCached proves a failed GetPokemon call isn't
+// remembered: a later call for the same name that succeeds must still hit
+// PokeAPI rather than replaying the earlier failure.
+func TestGetPokemon_ErrorsAreNotCached(t *testing.T) {
+	fail := true
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		if fail {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(pikachuPokemonJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	if _, err := client.GetPokemon(context.Background(), "pikachu"); err == nil {
+		t.Fatal("first GetPokemon returned nil error, want a LookupError from the 404 fixture")
+	}
+
+	fail = false
+	got, err := client.GetPokemon(context.Background(), "pikachu")
+	if err != nil {
+		t.Fatalf("second GetPokemon returned error: %v, want success now that the fixture stopped failing", err)
+	}
+	if got.Name != "pikachu" {
+		t.Errorf("GetPokemon after a prior failure = %+v, want pikachu (proves the failed call wasn't cached)", got)
+	}
+}
+
+// TestGetSpecies_CachesAcrossCalls proves a second GetSpecies call for the
+// same id/name is served from the Client's cache rather than hitting
+// PokeAPI again.
+func TestGetSpecies_CachesAcrossCalls(t *testing.T) {
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(pikachuSpeciesJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	first, err := client.GetSpecies(context.Background(), "25")
+	if err != nil {
+		t.Fatalf("first GetSpecies returned error: %v", err)
+	}
+	second, err := client.GetSpecies(context.Background(), "25")
+	if err != nil {
+		t.Fatalf("second GetSpecies returned error: %v", err)
+	}
+
+	if hits != 1 {
+		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
+	}
+	if second != first {
+		t.Errorf("cached GetSpecies = %+v, want %+v", second, first)
+	}
+}
+
 func TestLookup_NameQueryCallsPokemonDirectly(t *testing.T) {
 	speciesCalled := false
 	mux := http.NewServeMux()

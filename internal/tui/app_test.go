@@ -294,23 +294,6 @@ func TestApp_Update_ShowTypeRosterMsg_PushesHistoryAndTriggersLoad(t *testing.T)
 	}
 }
 
-// TestApp_Update_ShowTypeRosterMsg_ReusesCachedGenerations proves a second
-// type selection carries forward whatever generation data the first one
-// fetched, rather than discarding it - see loadTypeRosterCmd's doc comment
-// on why that fetch is worth caching for a whole session.
-func TestApp_Update_ShowTypeRosterMsg_ReusesCachedGenerations(t *testing.T) {
-	a := NewApp(nil)
-	t.Cleanup(a.Close)
-	a.typeRoster.generations = map[int]string{1: "generation-i"}
-
-	model, _ := a.Update(showTypeRosterMsg{typeName: "water"})
-	got := model.(App)
-
-	if got.typeRoster.generations[1] != "generation-i" {
-		t.Errorf("typeRoster.generations = %v, want the previous model's cache carried forward", got.typeRoster.generations)
-	}
-}
-
 // TestApp_Close_NilZonesIsSafe proves Close doesn't panic on a zero-value
 // App (no zone manager), matching the nil-safety the rest of the mouse
 // support relies on (see zones.go).

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 )
 
@@ -97,6 +98,36 @@ func TestGetGenerationIndex_SkipsUnparsableSpeciesURL(t *testing.T) {
 	}
 	if got[1] != "generation-i" {
 		t.Errorf("index[1] = %q, want %q", got[1], "generation-i")
+	}
+}
+
+// TestGetGenerationIndex_CachesAcrossCalls proves a second call is served
+// from the Client's cache: none of the 9 generation resources get
+// re-fetched, matching GetGenerationIndex's doc comment on being safe to
+// call on every Type Roster load.
+func TestGetGenerationIndex_CachesAcrossCalls(t *testing.T) {
+	var hits atomic.Int32
+	mux := http.NewServeMux()
+	for i := 1; i <= generationCount; i++ {
+		i := i
+		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, r *http.Request) {
+			hits.Add(1)
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(generationFixtureJSON("generation-"+strconv.Itoa(i), i, "species-"+strconv.Itoa(i))))
+		})
+	}
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	first := client.GetGenerationIndex(context.Background())
+	second := client.GetGenerationIndex(context.Background())
+
+	if got := hits.Load(); got != generationCount {
+		t.Errorf("PokeAPI was hit %d times, want %d (second call should be served entirely from cache)", got, generationCount)
+	}
+	if len(second) != len(first) {
+		t.Errorf("cached GetGenerationIndex returned %d entries, want %d", len(second), len(first))
 	}
 }
 

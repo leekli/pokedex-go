@@ -46,12 +46,12 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 const typeRosterTimeout = 20 * time.Second
 
 // loadTypeRosterCmd fetches every real Pokémon of typeName and reports the
-// outcome as a typeRosterResultMsg. cachedGenerations, if non-nil, is reused
-// as-is instead of re-fetching PokeAPI's generation index (see
-// GetGenerationIndex's doc comment on why that's cacheable for a whole
-// session); the result always carries back whichever map was actually used,
-// so the caller can cache it for next time.
-func loadTypeRosterCmd(client *pokeapi.Client, typeName string, cachedGenerations map[int]string) tea.Cmd {
+// outcome as a typeRosterResultMsg. It always calls GetGenerationIndex,
+// but that's cheap after the first call in a session — the Client itself
+// caches the generation index (see GetGenerationIndex's doc comment), so
+// only the very first Type Roster load in a run of the app actually hits
+// PokeAPI for it.
+func loadTypeRosterCmd(client *pokeapi.Client, typeName string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), typeRosterTimeout)
 		defer cancel()
@@ -61,10 +61,7 @@ func loadTypeRosterCmd(client *pokeapi.Client, typeName string, cachedGeneration
 			return typeRosterResultMsg{typeName: typeName, err: err}
 		}
 
-		generations := cachedGenerations
-		if generations == nil {
-			generations = client.GetGenerationIndex(ctx)
-		}
+		generations := client.GetGenerationIndex(ctx)
 		return typeRosterResultMsg{typeName: typeName, entries: entries, generations: generations}
 	}
 }

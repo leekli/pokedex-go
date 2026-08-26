@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -69,6 +70,70 @@ func TestGetPokemonByType_ServiceError(t *testing.T) {
 	var serviceErr *ServiceError
 	if !errors.As(err, &serviceErr) {
 		t.Fatalf("GetPokemonByType error = %v (%T), want *ServiceError", err, err)
+	}
+}
+
+// TestGetPokemonByType_CachesAcrossCalls proves a second GetPokemonByType
+// call for the same type is served from the Client's cache rather than
+// hitting PokeAPI again.
+func TestGetPokemonByType_CachesAcrossCalls(t *testing.T) {
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fireTypeJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	first, err := client.GetPokemonByType(context.Background(), "fire")
+	if err != nil {
+		t.Fatalf("first GetPokemonByType returned error: %v", err)
+	}
+	second, err := client.GetPokemonByType(context.Background(), "fire")
+	if err != nil {
+		t.Fatalf("second GetPokemonByType returned error: %v", err)
+	}
+
+	if hits != 1 {
+		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
+	}
+	if len(second) != len(first) {
+		t.Errorf("cached GetPokemonByType returned %d entries, want %d", len(second), len(first))
+	}
+}
+
+// TestGetPokemonByType_ErrorsAreNotCached proves a failed GetPokemonByType
+// call isn't remembered: a later call for the same type that succeeds must
+// still hit PokeAPI rather than replaying the earlier failure.
+func TestGetPokemonByType_ErrorsAreNotCached(t *testing.T) {
+	fail := true
+	mux := http.NewServeMux()
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+		if fail {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(fireTypeJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := NewClient(WithBaseURL(server.URL))
+
+	if _, err := client.GetPokemonByType(context.Background(), "fire"); err == nil {
+		t.Fatal("first GetPokemonByType returned nil error, want a ServiceError from the 500 fixture")
+	}
+
+	fail = false
+	got, err := client.GetPokemonByType(context.Background(), "fire")
+	if err != nil {
+		t.Fatalf("second GetPokemonByType returned error: %v, want success now that the fixture stopped failing", err)
+	}
+	if len(got) == 0 {
+		t.Error("GetPokemonByType after a prior failure returned no entries, want the roster (proves the failed call wasn't cached)")
 	}
 }
 

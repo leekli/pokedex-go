@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewTypeRosterModel_StartsLoading(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 	if !m.loading {
 		t.Error("newTypeRosterModel().loading = false, want true")
 	}
@@ -23,7 +23,7 @@ func TestNewTypeRosterModel_StartsLoading(t *testing.T) {
 }
 
 func TestTypeRosterModel_View_ShowsLoadingSpinner(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 	view := m.View()
 
 	if !strings.Contains(view, "Loading Fire-type Pokémon") {
@@ -35,7 +35,7 @@ func TestTypeRosterModel_View_ShowsLoadingSpinner(t *testing.T) {
 }
 
 func TestTypeRosterModel_Update_ResultPopulatesTable(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
@@ -61,7 +61,7 @@ func TestTypeRosterModel_Update_ResultPopulatesTable(t *testing.T) {
 }
 
 func TestTypeRosterModel_Update_ResultError(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 
 	m, cmd := m.Update(typeRosterResultMsg{typeName: "fire", err: &pokeapi.ServiceError{}})
 
@@ -83,7 +83,7 @@ func TestTypeRosterModel_Update_ResultError(t *testing.T) {
 // (including Esc) are blocked until the roster has actually loaded,
 // mirroring the Search Screen's same guard.
 func TestTypeRosterModel_Update_KeysIgnoredWhileLoading(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
@@ -169,7 +169,7 @@ func TestTypeRosterModel_Update_EnterQueriesTheOriginalSlugNotTheDisplayName(t *
 	}))
 	t.Cleanup(server.Close)
 
-	m := newTypeRosterModel(pokeapi.NewClient(pokeapi.WithBaseURL(server.URL)), "fire", nil)
+	m := newTypeRosterModel(pokeapi.NewClient(pokeapi.WithBaseURL(server.URL)), "fire")
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
 		entries:  []pokeapi.TypeRosterEntry{{DexNumber: 4, Name: "charmander"}},
@@ -229,7 +229,7 @@ func TestTypeRosterModel_Update_LookupResultMsg_ErrorShowsInline(t *testing.T) {
 // load, with two rows, for tests that only care about post-load behavior.
 func loadedTypeRosterModel(t *testing.T) typeRosterModel {
 	t.Helper()
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
 		entries: []pokeapi.TypeRosterEntry{
@@ -244,7 +244,7 @@ func loadedTypeRosterModel(t *testing.T) typeRosterModel {
 // (unexpected, but possible) empty roster doesn't panic indexing a
 // nonexistent selected row.
 func TestTypeRosterModel_Update_EnterWithNoRowsIsNoOp(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire", nil)
+	m := newTypeRosterModel(nil, "fire")
 	m, _ = m.Update(typeRosterResultMsg{typeName: "fire", entries: nil})
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})

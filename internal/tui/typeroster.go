@@ -33,16 +33,15 @@ type typeRosterModel struct {
 	client   *pokeapi.Client
 	typeName string
 
-	table       table.Model
-	generations map[int]string
-	spinner     spinner.Model
+	table   table.Model
+	spinner spinner.Model
 
 	loading       bool // fetching the roster itself
 	loadingDetail bool // fetching a selected row's full Pokémon details
 	errMsg        string
 }
 
-func newTypeRosterModel(client *pokeapi.Client, typeName string, cachedGenerations map[int]string) typeRosterModel {
+func newTypeRosterModel(client *pokeapi.Client, typeName string) typeRosterModel {
 	t := table.New(
 		table.WithColumns([]table.Column{
 			{Title: "#", Width: 6},
@@ -57,12 +56,11 @@ func newTypeRosterModel(client *pokeapi.Client, typeName string, cachedGeneratio
 	sp.Spinner = spinner.Dot
 
 	return typeRosterModel{
-		client:      client,
-		typeName:    typeName,
-		table:       t,
-		generations: cachedGenerations,
-		spinner:     sp,
-		loading:     true,
+		client:   client,
+		typeName: typeName,
+		table:    t,
+		spinner:  sp,
+		loading:  true,
 	}
 }
 
@@ -125,7 +123,6 @@ func (m typeRosterModel) Update(msg tea.Msg) (typeRosterModel, tea.Cmd) {
 			m.errMsg = errorMessageFor(msg.err, msg.typeName)
 			return m, nil
 		}
-		m.generations = msg.generations
 		m.table.SetRows(rosterRows(msg.entries, msg.generations))
 		return m, nil
 

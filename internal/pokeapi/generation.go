@@ -31,7 +31,19 @@ type generationDTO struct {
 // still valuable on their own even if Generation can't be filled in for
 // every row — the same reasoning as a failed sprite fetch not failing an
 // otherwise-successful lookup (see commands.go).
+//
+// The result (complete or partial) is cached for the rest of the Client's
+// lifetime (see cache's doc comment) — every caller can call this on every
+// Type Roster load; only the first call in a Client's life actually hits
+// the network.
 func (c *Client) GetGenerationIndex(ctx context.Context) map[int]string {
+	c.cache.mu.Lock()
+	cached := c.cache.generations
+	c.cache.mu.Unlock()
+	if cached != nil {
+		return cached
+	}
+
 	type result struct {
 		dto generationDTO
 		err error
@@ -64,5 +76,9 @@ func (c *Client) GetGenerationIndex(ctx context.Context) map[int]string {
 			index[id] = r.dto.Name
 		}
 	}
+
+	c.cache.mu.Lock()
+	c.cache.generations = index
+	c.cache.mu.Unlock()
 	return index
 }
