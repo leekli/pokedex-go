@@ -32,6 +32,10 @@ _Avoid_: Pokédex number, dex id, pokemon id
 The Pokémon image shown on the Result Screen — specifically PokeAPI's `sprites.front_default` variant (small, Gen-accurate pixel art), chosen to match the Generation 1 Pokédex look rather than PokeAPI's `official-artwork` (modern box-art render), which is out of scope for this screen.
 _Avoid_: Artwork, image, portrait
 
+**Pokédex Entry**:
+The descriptive text shown on the Result Screen beneath the Type Badges, sourced from PokeAPI's `flavor_text_entries`, in the style of the original games' Pokédex descriptions. Preferred from a Generation I game version (Red, Blue, then Yellow) where one exists, falling back to the first English entry otherwise — see [`docs/adr/0003`](./docs/adr/0003-prefer-generation-1-pokedex-entry-version.md). Distinct from the Stat Block, which is numeric/structured data rather than descriptive text. Fetching it is best-effort, the same as the Sprite: a failure shows a fallback message rather than failing the whole lookup.
+_Avoid_: Flavor text, description, blurb, dex entry
+
 **Stat Block**:
 The set of fields shown on the Result Screen for a Pokémon: Pokédex #, Name, Type(s) (rendered as Type Badges), Height, Weight, HP, Attack, Defense, Speed, Special Attack, Special Defense. Height/Weight are converted from PokeAPI's decimetre/hectogram units to imperial (ft-in / lbs), matching how the original English Game Boy games displayed them. Uses the modern Sp. Atk / Sp. Def split from PokeAPI rather than Generation 1's single "Special" stat, since PokeAPI has no real Gen-1 Special value to show — only the visual style (labels, layout, palette, imperial units) is Gen-1-inspired, not the underlying data.
 _Avoid_: Stats panel, info block, stat sheet

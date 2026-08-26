@@ -17,7 +17,12 @@ func TestSearch_SuccessfulLookupByNameShowsResultScreen(t *testing.T) {
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
 	waitForAll(t, tm, 3*time.Second,
-		"#025 Pikachu", "ELECTRIC", "HP", "Attack", "Defense", "Speed", `1'04"`, "13.2 lbs")
+		"#025 Pikachu", "ELECTRIC", "HP", "Attack", "Defense", "Speed", `1'04"`, "13.2 lbs",
+		// Split across the two substrings rather than one long sentence,
+		// since the Result Screen word-wraps the Pokédex Entry to the
+		// card's width and the wrap point would otherwise land mid-string.
+		"When several of these Pokémon gather, their",
+		"electricity could build and cause lightning storms.")
 }
 
 func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
@@ -27,9 +32,13 @@ func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
 	tm.Type("25")
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
 
-	teatest.WaitFor(t, tm.Output(), func(out []byte) bool {
-		return bytes.Contains(out, []byte("#025 Pikachu"))
-	}, teatest.WithDuration(3*time.Second))
+	waitForAll(t, tm, 3*time.Second,
+		"#025 Pikachu",
+		// Split across the two substrings rather than one long sentence,
+		// since the Result Screen word-wraps the Pokédex Entry to the
+		// card's width and the wrap point would otherwise land mid-string.
+		"When several of these Pokémon gather, their",
+		"electricity could build and cause lightning storms.")
 }
 
 // advanceToSearchScreen presses Enter on the Splash Screen and waits for the

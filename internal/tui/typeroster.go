@@ -132,7 +132,7 @@ func (m typeRosterModel) Update(msg tea.Msg) (typeRosterModel, tea.Cmd) {
 			m.errMsg = errorMessageFor(msg.err, m.table.SelectedRow()[nameColumn])
 			return m, nil
 		}
-		return m, showResult(msg.stat, msg.sprite)
+		return m, showResult(msg.stat, msg.sprite, msg.pokedexEntry)
 	}
 	return m, nil
 }

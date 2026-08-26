@@ -26,8 +26,9 @@ type pokemonDTO struct {
 }
 
 // speciesDTO is the shape of a GET /pokemon-species/{id-or-name} response.
-// Only the default variety's Pokémon name is needed, to resolve a National
-// Dex Number lookup into the base-form pokemon resource.
+// The default variety's Pokémon name resolves a National Dex Number lookup
+// into the base-form pokemon resource; flavor_text_entries is the source of
+// the Result Screen's Pokédex Entry (see SelectPokedexEntry).
 type speciesDTO struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
@@ -37,6 +38,15 @@ type speciesDTO struct {
 			Name string `json:"name"`
 		} `json:"pokemon"`
 	} `json:"varieties"`
+	FlavorTextEntries []struct {
+		FlavorText string `json:"flavor_text"`
+		Language   struct {
+			Name string `json:"name"`
+		} `json:"language"`
+		Version struct {
+			Name string `json:"name"`
+		} `json:"version"`
+	} `json:"flavor_text_entries"`
 }
 
 // Pokemon is the domain representation of a GET /pokemon/{name} response —
@@ -52,11 +62,23 @@ type Pokemon struct {
 }
 
 // Species is the domain representation of a GET /pokemon-species/{...}
-// response, reduced to what's needed to resolve a National Dex Number.
+// response: enough to resolve a National Dex Number, plus every raw
+// flavor text entry PokeAPI has for this species (see SelectPokedexEntry
+// for picking one to display).
 type Species struct {
 	ID                 int
 	Name               string
 	DefaultPokemonName string
+	FlavorTextEntries  []FlavorTextEntry
+}
+
+// FlavorTextEntry is one language/game-version-specific Pokédex description
+// from a pokemon-species resource, before any selection or cleanup - see
+// SelectPokedexEntry and docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
+type FlavorTextEntry struct {
+	Text     string
+	Language string
+	Version  string
 }
 
 func (d pokemonDTO) toDomain() Pokemon {
@@ -87,6 +109,14 @@ func (d speciesDTO) toDomain() Species {
 			s.DefaultPokemonName = v.Pokemon.Name
 			break
 		}
+	}
+	s.FlavorTextEntries = make([]FlavorTextEntry, 0, len(d.FlavorTextEntries))
+	for _, e := range d.FlavorTextEntries {
+		s.FlavorTextEntries = append(s.FlavorTextEntries, FlavorTextEntry{
+			Text:     e.FlavorText,
+			Language: e.Language.Name,
+			Version:  e.Version.Name,
+		})
 	}
 	return s
 }

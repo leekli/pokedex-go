@@ -43,24 +43,30 @@ func searchAgain() tea.Cmd {
 
 // lookupResultMsg is what an in-flight lookupCmd resolves to: either a
 // successfully built StatBlock (with an optional sprite image — nil if
-// PokeAPI had no sprite, or the sprite fetch itself failed) or an error from
-// the pokeapi package (*pokeapi.LookupError or *pokeapi.ServiceError).
+// PokeAPI had no sprite, or the sprite fetch itself failed — and a
+// pokedexEntry, "" under the same best-effort terms; see
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md) or an error
+// from the pokeapi package (*pokeapi.LookupError or *pokeapi.ServiceError).
 type lookupResultMsg struct {
-	stat   pokemon.StatBlock
-	sprite image.Image
-	err    error
+	stat         pokemon.StatBlock
+	sprite       image.Image
+	pokedexEntry string
+	err          error
 }
 
 // showResultMsg carries a successful lookup's data into the Result Screen
 // and switches to it. Separate from switchScreenMsg because it's the only
 // transition that carries a payload.
 type showResultMsg struct {
-	stat   pokemon.StatBlock
-	sprite image.Image
+	stat         pokemon.StatBlock
+	sprite       image.Image
+	pokedexEntry string
 }
 
-func showResult(stat pokemon.StatBlock, sprite image.Image) tea.Cmd {
-	return func() tea.Msg { return showResultMsg{stat: stat, sprite: sprite} }
+func showResult(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string) tea.Cmd {
+	return func() tea.Msg {
+		return showResultMsg{stat: stat, sprite: sprite, pokedexEntry: pokedexEntry}
+	}
 }
 
 // showTypeRosterMsg carries the selected type into the Type Roster Screen

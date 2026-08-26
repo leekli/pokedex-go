@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,6 +34,23 @@ const pikachuSpeciesJSON = `{
 	"name": "pikachu",
 	"varieties": [
 		{"is_default": true, "pokemon": {"name": "pikachu"}}
+	]
+}`
+
+// pikachuSpeciesWithFlavorTextJSON adds flavor_text_entries on top of
+// pikachuSpeciesJSON's shape, including the literal \n line-break artifact
+// PokeAPI passes through verbatim from the original games' text boxes (see
+// SelectPokedexEntry, which is responsible for cleaning it up - this fixture
+// only proves the raw text survives JSON decoding untouched).
+const pikachuSpeciesWithFlavorTextJSON = `{
+	"id": 25,
+	"name": "pikachu",
+	"varieties": [
+		{"is_default": true, "pokemon": {"name": "pikachu"}}
+	],
+	"flavor_text_entries": [
+		{"flavor_text": "When several of\nthese Pokémon gather,\ntheir electricity could\nbuild and cause lightning\nstorms.", "language": {"name": "en"}, "version": {"name": "yellow"}},
+		{"flavor_text": "Ignoré.", "language": {"name": "fr"}, "version": {"name": "yellow"}}
 	]
 }`
 
@@ -198,6 +216,35 @@ func TestLookup_DexNumberSpeciesLookupFails(t *testing.T) {
 	}
 }
 
+// TestGetSpecies_DecodesFlavorTextEntries proves flavor_text_entries decodes
+// into Species.FlavorTextEntries with the raw text passed through untouched
+// (cleanup is SelectPokedexEntry's job, tested separately) and non-English
+// entries preserved rather than filtered at this layer.
+func TestGetSpecies_DecodesFlavorTextEntries(t *testing.T) {
+	_, client := newFixtureServer(t, map[string]fixtureResponse{
+		"/pokemon-species/25": {status: http.StatusOK, body: pikachuSpeciesWithFlavorTextJSON},
+	})
+
+	got, err := client.GetSpecies(context.Background(), "25")
+	if err != nil {
+		t.Fatalf("GetSpecies returned error: %v", err)
+	}
+
+	if len(got.FlavorTextEntries) != 2 {
+		t.Fatalf("FlavorTextEntries = %+v, want 2 entries", got.FlavorTextEntries)
+	}
+	en := got.FlavorTextEntries[0]
+	if en.Language != "en" || en.Version != "yellow" {
+		t.Errorf("entry 0 = %+v, want language en, version yellow", en)
+	}
+	if !strings.Contains(en.Text, "lightning") || !strings.Contains(en.Text, "\n") {
+		t.Errorf("entry 0.Text = %q, want the raw flavor text (including its literal newlines) passed through untouched", en.Text)
+	}
+	if got.FlavorTextEntries[1].Language != "fr" {
+		t.Errorf("entry 1.Language = %q, want fr (non-English entries aren't filtered at this layer)", got.FlavorTextEntries[1].Language)
+	}
+}
+
 func TestGetSpecies_NoDefaultVariety(t *testing.T) {
 	const speciesWithNoDefaultJSON = `{
 		"id": 25,
@@ -310,7 +357,7 @@ func TestGetSpecies_CachesAcrossCalls(t *testing.T) {
 	if hits != 1 {
 		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
 	}
-	if second != first {
+	if second.ID != first.ID || second.Name != first.Name {
 		t.Errorf("cached GetSpecies = %+v, want %+v", second, first)
 	}
 }

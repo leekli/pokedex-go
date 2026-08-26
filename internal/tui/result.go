@@ -39,7 +39,9 @@ var (
 			BorderForeground(lipgloss.Color(pokemonYellow)).
 			Padding(0, 1)
 
-	resultCenterStyle = lipgloss.NewStyle().Width(resultCardWidth).Align(lipgloss.Center)
+	resultCenterStyle   = lipgloss.NewStyle().Width(resultCardWidth).Align(lipgloss.Center)
+	resultEntryStyle    = lipgloss.NewStyle().Width(resultCardWidth)
+	noPokedexEntryStyle = lipgloss.NewStyle().Faint(true).Italic(true)
 
 	statTableBorderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#30363D"))
 	statTableHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#6E7681"))
@@ -65,12 +67,13 @@ var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychi
 // card - echoing the Search Screen's input box - with the base stats laid
 // out as a table of colored bars.
 type resultModel struct {
-	stat   pokemon.StatBlock
-	sprite image.Image
+	stat         pokemon.StatBlock
+	sprite       image.Image
+	pokedexEntry string
 }
 
-func newResultModel(stat pokemon.StatBlock, sprite image.Image) resultModel {
-	return resultModel{stat: stat, sprite: sprite}
+func newResultModel(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string) resultModel {
+	return resultModel{stat: stat, sprite: sprite, pokedexEntry: pokedexEntry}
 }
 
 // Update handles the Result Screen's keys directly: Esc goes back to
@@ -100,7 +103,7 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite)))
+	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.pokedexEntry)))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
@@ -108,10 +111,12 @@ func (m resultModel) View() string {
 }
 
 // renderResultCard renders the card's interior: title, sprite (or its "no
-// sprite" fallback), type badges, height/weight, a small dot flourish, and
-// the base stats table - everything CONTEXT.md's Stat Block already shows,
-// just restyled.
-func renderResultCard(stat pokemon.StatBlock, sprite image.Image) string {
+// sprite" fallback), type badges, the Pokédex Entry (or its own fallback -
+// see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
+// height/weight, a small dot flourish, and the base stats table -
+// everything CONTEXT.md's Stat Block already shows, just restyled, plus the
+// Pokédex Entry alongside it.
+func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
@@ -127,6 +132,13 @@ func renderResultCard(stat pokemon.StatBlock, sprite image.Image) string {
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderTypeBadges(stat.Types)))
+	b.WriteString("\n\n")
+
+	if pokedexEntry != "" {
+		b.WriteString(resultEntryStyle.Render(pokedexEntry))
+	} else {
+		b.WriteString(resultEntryStyle.Render(noPokedexEntryStyle.Render("No Pokédex entry available.")))
+	}
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderHeightWeight(stat)))

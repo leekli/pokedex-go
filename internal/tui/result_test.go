@@ -46,7 +46,7 @@ func testStatBlock() pokemon.StatBlock {
 func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
-	m := newResultModel(testStatBlock(), img)
+	m := newResultModel(testStatBlock(), img, "")
 	view := m.View()
 
 	for _, want := range []string{
@@ -75,7 +75,7 @@ func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 // fallback (sprite == nil) still renders inside the new card, with the rest
 // of the Stat Block unaffected.
 func TestResultModel_View_NoSprite(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 	view := m.View()
 
 	if !strings.Contains(view, "No sprite available") {
@@ -83,6 +83,32 @@ func TestResultModel_View_NoSprite(t *testing.T) {
 	}
 	if !strings.Contains(view, "#006 Charizard") || !strings.Contains(view, "HP") {
 		t.Errorf("resultModel.View() with a nil sprite should still show the rest of the stat block\ngot:\n%s", view)
+	}
+}
+
+// TestResultModel_View_ShowsPokedexEntry proves a non-empty pokedexEntry
+// renders on the card - see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
+func TestResultModel_View_ShowsPokedexEntry(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil, "A mysterious, flame-spitting Pokémon.")
+	view := m.View()
+
+	if !strings.Contains(view, "A mysterious, flame-spitting Pokémon.") {
+		t.Errorf("resultModel.View() missing the Pokédex Entry\ngot:\n%s", view)
+	}
+	if strings.Contains(view, "No Pokédex entry available.") {
+		t.Errorf("resultModel.View() with a Pokédex Entry should not show the fallback message\ngot:\n%s", view)
+	}
+}
+
+// TestResultModel_View_NoPokedexEntryFallback proves an empty pokedexEntry
+// (no English entry existed, or the fetch failed) shows a fallback message
+// rather than an empty gap, the same way a nil sprite does.
+func TestResultModel_View_NoPokedexEntryFallback(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil, "")
+	view := m.View()
+
+	if !strings.Contains(view, "No Pokédex entry available.") {
+		t.Errorf("resultModel.View() with no Pokédex Entry missing fallback message\ngot:\n%s", view)
 	}
 }
 
@@ -120,7 +146,7 @@ func TestRenderStatBar(t *testing.T) {
 // TestResultModel_Update_NonKeyMsgIgnored proves a message that isn't a
 // key press (e.g. a stray tick from another screen) is simply ignored.
 func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 
 	got, cmd := m.Update(struct{}{})
 
@@ -137,7 +163,7 @@ func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
 // (see docs/adr/0001-navigation-history-for-back-navigation.md and
 // result_navigation_test.go for the full-flow e2e equivalent).
 func TestResultModel_Update_EscGoesBack(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
@@ -153,7 +179,7 @@ func TestResultModel_Update_EscGoesBack(t *testing.T) {
 // meaning - "look up another Pokémon" - regardless of how this screen was
 // reached (see docs/adr/0001).
 func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -166,7 +192,7 @@ func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
 }
 
 func TestResultModel_Update_QQuits(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 
@@ -181,7 +207,7 @@ func TestResultModel_Update_QQuits(t *testing.T) {
 // TestResultModel_Update_UnhandledKeyNoOp proves a key with no binding on
 // this screen (there's no free-text input here) is simply ignored.
 func TestResultModel_Update_UnhandledKeyNoOp(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil)
+	m := newResultModel(testStatBlock(), nil, "")
 
 	got, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
 

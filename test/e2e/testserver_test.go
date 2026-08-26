@@ -46,10 +46,17 @@ const pikachuPokemonJSONTemplate = `{
 	"sprites": {"front_default": "%s/sprites/pikachu.png"}
 }`
 
+// pikachuSpeciesJSON includes a Generation I flavor text entry so the
+// Search flow can assert the Pokédex Entry actually reaches the rendered
+// Result Screen end-to-end - see
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
 const pikachuSpeciesJSON = `{
 	"id": 25,
 	"name": "pikachu",
-	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}]
+	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}],
+	"flavor_text_entries": [
+		{"flavor_text": "When several of\nthese Pokémon gather,\ntheir electricity could\nbuild and cause lightning\nstorms.", "language": {"name": "en"}, "version": {"name": "red"}}
+	]
 }`
 
 // charmanderPokemonJSON is served for /pokemon/charmander, so the Type
@@ -131,12 +138,17 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		}
 	})
 	mux.HandleFunc("/pokemon-species/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if r.PathValue("id") == "25" {
+		// Answers both "25" (a DexNumber query's own species resolution, and
+		// the Result Screen's Pokédex Entry fetch reusing that same cached
+		// call) and "pikachu" (a Name query's separate Pokédex Entry fetch -
+		// see lookupCmd's doc comment).
+		switch r.PathValue("id") {
+		case "25", "pikachu":
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(pikachuSpeciesJSON))
-			return
+		default:
+			w.WriteHeader(http.StatusNotFound)
 		}
-		w.WriteHeader(http.StatusNotFound)
 	})
 	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")

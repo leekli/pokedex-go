@@ -133,6 +133,108 @@ func TestLookupCmd_NoSpriteURL(t *testing.T) {
 	}
 }
 
+const lookupCmdPikachuSpeciesJSON = `{
+	"id": 25,
+	"name": "pikachu",
+	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}],
+	"flavor_text_entries": [
+		{"flavor_text": "A strange melody plays.", "language": {"name": "en"}, "version": {"name": "red"}}
+	]
+}`
+
+// TestLookupCmd_IncludesPokedexEntry proves a successful lookup also
+// populates lookupResultMsg.pokedexEntry, from a second, best-effort
+// GetSpecies call keyed by the query value - see docs/adr/0003-prefer-
+// generation-1-pokedex-entry-version.md.
+func TestLookupCmd_IncludesPokedexEntry(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPikachuSpeciesJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.pokedexEntry != "A strange melody plays." {
+		t.Errorf("lookupResultMsg.pokedexEntry = %q, want %q", msg.pokedexEntry, "A strange melody plays.")
+	}
+}
+
+// TestLookupCmd_PokedexEntryFetchFailureStillSucceeds proves a failed
+// species fetch doesn't fail the overall lookup, the same way a failed
+// sprite fetch doesn't (see TestLookupCmd_SpriteFetchFailureStillSucceeds).
+func TestLookupCmd_PokedexEntryFetchFailureStillSucceeds(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil (a failed Pokédex Entry fetch must not fail the lookup)", msg.err)
+	}
+	if msg.pokedexEntry != "" {
+		t.Errorf("lookupResultMsg.pokedexEntry = %q, want empty after a failed species fetch", msg.pokedexEntry)
+	}
+}
+
+// TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry proves a
+// DexNumber query's Pokédex Entry fetch is served from the cache Lookup
+// itself already populated (Lookup resolves a DexNumber query via
+// GetSpecies under this same key), rather than hitting
+// /pokemon-species/{id} a second time - the caching payoff described in
+// lookupCmd's doc comment.
+func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry(t *testing.T) {
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPikachuSpeciesJSON))
+	})
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	cmd := lookupCmd(client, pokemon.Query{Kind: pokemon.DexNumber, Value: "25"})
+	msg, ok := cmd().(lookupResultMsg)
+	if !ok {
+		t.Fatalf("lookupCmd() produced %T, want lookupResultMsg", cmd())
+	}
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.pokedexEntry != "A strange melody plays." {
+		t.Errorf("lookupResultMsg.pokedexEntry = %q, want %q", msg.pokedexEntry, "A strange melody plays.")
+	}
+	if hits != 1 {
+		t.Errorf("/pokemon-species/25 was hit %d times, want 1 (the Pokédex Entry fetch should reuse Lookup's own cached species call)", hits)
+	}
+}
+
 // TestLookupCmd_LookupError proves a failed PokeAPI lookup is surfaced as
 // lookupResultMsg.err, unmodified, with no stat block.
 func TestLookupCmd_LookupError(t *testing.T) {

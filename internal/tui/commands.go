@@ -15,9 +15,16 @@ import (
 const lookupTimeout = 10 * time.Second
 
 // lookupCmd resolves q against PokeAPI and reports the outcome as a
-// lookupResultMsg. A failed sprite fetch is not treated as an overall
-// failure — the Result Screen falls back to "No sprite available" instead
-// of losing an otherwise-successful stat lookup over a broken image.
+// lookupResultMsg. Both the sprite fetch and the Pokédex Entry fetch are
+// best-effort: a failure in either leaves that field blank (image.Image nil
+// / string "") rather than failing the overall lookup, since a missing
+// sprite or description is never worse than losing an otherwise-successful
+// stat lookup over it. The Pokédex Entry comes from a second, separate
+// GetSpecies call keyed by q.Value — for a DexNumber query this reuses the
+// species Lookup itself already fetched (and cached) under that same key,
+// so it costs no extra network round trip; for a Name query it's a genuine
+// second request, since Lookup skips species entirely in that case. See
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
 func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
@@ -29,13 +36,20 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 		}
 
 		stat := pokeapi.BuildStatBlock(p)
+
 		var sprite image.Image
 		if p.SpriteURL != "" {
 			if img, spriteErr := client.FetchSprite(ctx, p.SpriteURL); spriteErr == nil {
 				sprite = img
 			}
 		}
-		return lookupResultMsg{stat: stat, sprite: sprite}
+
+		var pokedexEntry string
+		if species, speciesErr := client.GetSpecies(ctx, q.Value); speciesErr == nil {
+			pokedexEntry = pokeapi.SelectPokedexEntry(species.FlavorTextEntries)
+		}
+
+		return lookupResultMsg{stat: stat, sprite: sprite, pokedexEntry: pokedexEntry}
 	}
 }
 
