@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/leekli/pokedex-go/internal/pokemon"
@@ -22,12 +23,38 @@ func typeSelectZoneID(typeName string) string {
 	return "type-select-" + typeName
 }
 
+// typeSelectHeaderLines is the number of lines typeSelectModel.View() emits
+// before the first type row (the title line, then the hint line followed
+// by a blank line) - used to translate the cursor index into an absolute
+// line number for App's shared viewport to keep on screen (see
+// followCursor). Must be kept in sync with View()'s structure.
+const typeSelectHeaderLines = 3
+
+// followCursor nudges vp's YOffset, if needed, so the content line at
+// index line stays within its currently visible window - the same "ensure
+// visible" behavior bubbles/list gives for free, hand-rolled here since
+// typeSelectModel deliberately isn't a bubbles/list (see its own doc
+// comment below). Called from App.Update after every keypress that might
+// have moved the cursor, so the Type Select Screen's selection never
+// scrolls out of view even on a terminal shorter than its 18-type list.
+func followCursor(vp viewport.Model, line int) viewport.Model {
+	switch {
+	case line < vp.YOffset:
+		vp.SetYOffset(line)
+	case line >= vp.YOffset+vp.Height:
+		vp.SetYOffset(line - vp.Height + 1)
+	}
+	return vp
+}
+
 // typeSelectModel is the Type Select Screen: a list of every real Pokémon
 // type, normalized to a capitalized display form and rendered as a colored
 // badge (reusing the same TypeColor palette as the Result Screen's Type
-// Badges). There's no scrolling or filtering to manage — exactly 18 types
-// always exist and always fit on screen — so this is a plain hand-rolled
-// cursor over a static list rather than a stateful bubbles component.
+// Badges). Filtering isn't needed — exactly 18 types always exist — so
+// this is a plain hand-rolled cursor over a static list rather than a
+// stateful bubbles component; scrolling on a terminal too short to show
+// all 18 is handled one level up, by App's shared viewport following the
+// cursor (see followCursor), not by this model itself.
 type typeSelectModel struct {
 	types  []string
 	cursor int

@@ -17,10 +17,38 @@ var (
 	typeRosterErrorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#C03028")).Bold(true)
 )
 
-// typeRosterTableHeight is the table's visible row count. Some types (e.g.
-// Water) have 150+ real Pokémon, far more than fits on screen, hence a
-// scrollable table rather than a plain list.
-const typeRosterTableHeight = 14
+// typeRosterTableChrome is the number of terminal rows typeRosterModel's
+// View() always renders outside the table itself: the type header badge,
+// a blank line beneath it, a blank line after the table, and the hint
+// line (see View()'s default case) - subtracted from the terminal's
+// height so the whole screen, table included, fits without needing its
+// own scrolling on top of the table's own (see typeRosterTableHeight).
+const typeRosterTableChrome = 4
+
+// typeRosterTableHeightMax keeps the table's height from growing past its
+// original fixed size just because the terminal is large - the same
+// "clamp, don't stretch" choice already made for the Result Screen's
+// stats table. typeRosterTableHeightMin is the smallest height that still
+// shows a header plus at least one data row. Some types (e.g. Water) have
+// 150+ real Pokémon, far more than fits in either bound, hence a
+// scrollable table (bubbles/table's own built-in scrolling) rather than a
+// plain list.
+const (
+	typeRosterTableHeightMax = 14
+	typeRosterTableHeightMin = 3
+)
+
+// typeRosterTableHeight computes the value to pass to table.WithHeight /
+// table.Model.SetHeight - which itself already counts the table's own
+// header row against that total (see bubbles/table's WithHeight) - from
+// the terminal's height, clamped to
+// [typeRosterTableHeightMin, typeRosterTableHeightMax]. A non-positive or
+// unknown terminalHeight (e.g. before the first tea.WindowSizeMsg) still
+// yields a usable typeRosterTableHeightMin-row table rather than 0.
+func typeRosterTableHeight(terminalHeight int) int {
+	h := min(terminalHeight-typeRosterTableChrome, typeRosterTableHeightMax)
+	return max(h, typeRosterTableHeightMin)
+}
 
 // typeRosterModel is the Type Roster Screen: a header naming the type in
 // its conventional color, and a scrollable table of every real Pokémon of
@@ -41,14 +69,14 @@ type typeRosterModel struct {
 	errMsg        string
 }
 
-func newTypeRosterModel(client *pokeapi.Client, typeName string) typeRosterModel {
+func newTypeRosterModel(client *pokeapi.Client, typeName string, terminalHeight int) typeRosterModel {
 	t := table.New(
 		table.WithColumns([]table.Column{
 			{Title: "#", Width: 6},
 			{Title: "Name", Width: 20},
 			{Title: "Generation", Width: 16},
 		}),
-		table.WithHeight(typeRosterTableHeight),
+		table.WithHeight(typeRosterTableHeight(terminalHeight)),
 		table.WithFocused(true),
 	)
 
@@ -62,6 +90,15 @@ func newTypeRosterModel(client *pokeapi.Client, typeName string) typeRosterModel
 		spinner:  sp,
 		loading:  true,
 	}
+}
+
+// resize adjusts the table's visible height to fit terminalHeight - see
+// typeRosterTableHeight. Called by App whenever the terminal is resized,
+// regardless of whether the Type Roster Screen is currently active, so
+// its table is already sized correctly if the user navigates back to it.
+func (m typeRosterModel) resize(terminalHeight int) typeRosterModel {
+	m.table.SetHeight(typeRosterTableHeight(terminalHeight))
+	return m
 }
 
 // busy reports whether the screen is mid-fetch and should ignore

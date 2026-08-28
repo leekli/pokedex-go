@@ -5,10 +5,45 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/leekli/pokedex-go/internal/pokemon"
 	zone "github.com/lrstanley/bubblezone"
 )
+
+// TestFollowCursor covers followCursor's three cases directly - the line
+// already visible (no-op), above the window (jump to it), and below the
+// window (scroll just enough to bring it into view) - without needing a
+// whole App to exercise the Type Select Screen's auto-follow behavior
+// (see TestApp_Update_TypeSelect_CursorAutoFollowsOffscreenRow for that).
+func TestFollowCursor(t *testing.T) {
+	tests := []struct {
+		name       string
+		yOffset    int
+		height     int
+		line       int
+		wantOffset int
+	}{
+		{"already visible mid-window is a no-op", 5, 10, 7, 5},
+		{"exactly at the top boundary is a no-op", 5, 10, 5, 5},
+		{"above the window jumps straight to it", 5, 10, 2, 2},
+		{"below the window scrolls just enough", 0, 10, 12, 3},
+		{"exactly at the bottom boundary scrolls by one", 0, 10, 10, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vp := viewport.New(0, tt.height)
+			vp.SetContent(strings.Repeat("x\n", 50))
+			vp.YOffset = tt.yOffset
+
+			got := followCursor(vp, tt.line)
+
+			if got.YOffset != tt.wantOffset {
+				t.Errorf("followCursor(YOffset=%d, Height=%d, line=%d).YOffset = %d, want %d", tt.yOffset, tt.height, tt.line, got.YOffset, tt.wantOffset)
+			}
+		})
+	}
+}
 
 func TestNewTypeSelectModel_ListsAllTypes(t *testing.T) {
 	m := newTypeSelectModel(nil)

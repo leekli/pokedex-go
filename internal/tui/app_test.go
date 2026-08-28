@@ -1,11 +1,22 @@
 package tui
 
 import (
+	"image"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// tallResultModel builds a resultModel with enough content - full-size
+// front/back sprites, an evolution chain, and weaknesses/resistances - to
+// exceed a small terminal's height, for the scrolling tests below.
+func tallResultModel() resultModel {
+	front := image.NewNRGBA(image.Rect(0, 0, 96, 96))
+	back := image.NewNRGBA(image.Rect(0, 0, 96, 96))
+	chain := pichuPikachuRaichuChain()
+	return newResultModel(testStatBlock(), front, back, "A long Pokédex entry describing this Pokémon in some detail.", &chain, charizardTypeEffectiveness())
+}
 
 func TestNewApp_StartsOnSplashScreen(t *testing.T) {
 	a := NewApp(nil)
@@ -310,5 +321,161 @@ func TestApp_View_NilZonesIsSafe(t *testing.T) {
 
 	if view := a.View(); !strings.Contains(view, "Press Enter to search for Pokémon") {
 		t.Errorf("App.View() with nil zones = %q, want the splash prompt still rendered", view)
+	}
+}
+
+// TestApp_Update_WindowSizeMsg_StoresDimensions proves App captures the
+// terminal size and sizes its shared viewport from it - the foundation
+// every other scrolling test below depends on.
+func TestApp_Update_WindowSizeMsg_StoresDimensions(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 25})
+	got := model.(App)
+
+	if got.width != 80 || got.height != 25 {
+		t.Errorf("width, height = %d, %d, want 80, 25", got.width, got.height)
+	}
+	if got.viewport.Height != 24 {
+		t.Errorf("viewport.Height = %d, want 24 (25 minus the scroll-indicator reservation)", got.viewport.Height)
+	}
+}
+
+// TestApp_View_ClampsResultScreenToTerminalHeight is the direct regression
+// test for the reported bug: on a small terminal, the Result Screen's
+// sprites and stat table were pushed off the top with no way to scroll up
+// and see them. "Speed" (the stat table's last row) stands in for that
+// clipped content.
+func TestApp_View_ClampsResultScreenToTerminalHeight(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenResult
+	a.result = tallResultModel()
+
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	a = model.(App)
+
+	view := a.View()
+	if lines := strings.Count(view, "\n") + 1; lines > a.height {
+		t.Errorf("App.View() rendered %d lines, want <= terminal height %d\ngot:\n%s", lines, a.height, view)
+	}
+	if strings.Contains(view, "Speed") {
+		t.Errorf("App.View() on a 10-row terminal already shows \"Speed\" (the last stat row) - want it clipped below the fold\ngot:\n%s", view)
+	}
+}
+
+// TestApp_Update_DownRevealsClippedContent proves the content
+// TestApp_View_ClampsResultScreenToTerminalHeight found clipped actually
+// becomes visible by scrolling - the other half of the reported bug fix.
+func TestApp_Update_DownRevealsClippedContent(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenResult
+	a.result = tallResultModel()
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	a = model.(App)
+	if strings.Contains(a.View(), "Speed") {
+		t.Fatal("test setup: \"Speed\" already visible before scrolling - fixture isn't tall enough to exercise clipping")
+	}
+
+	for range 60 {
+		model, _ = a.Update(tea.KeyMsg{Type: tea.KeyDown})
+		a = model.(App)
+	}
+
+	if !strings.Contains(a.View(), "Speed") {
+		t.Errorf("App.View() after scrolling down still missing \"Speed\" - the previously clipped content never became visible\ngot:\n%s", a.View())
+	}
+}
+
+// TestApp_Update_ScreenTransitionResetsScrollPosition proves each newly
+// shown screen starts scrolled to the top, rather than inheriting wherever
+// the previous screen happened to be scrolled to.
+func TestApp_Update_ScreenTransitionResetsScrollPosition(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	a.screen = screenResult
+	a.result = tallResultModel()
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	a = model.(App)
+	for range 10 {
+		model, _ = a.Update(tea.KeyMsg{Type: tea.KeyDown})
+		a = model.(App)
+	}
+	if a.viewport.YOffset == 0 {
+		t.Fatal("test setup: scrolling down never moved the viewport")
+	}
+
+	model, _ = a.Update(searchAgainMsg{})
+	a = model.(App)
+
+	if a.viewport.YOffset != 0 {
+		t.Errorf("viewport.YOffset = %d after searchAgainMsg, want 0 (a fresh screen should start scrolled to top)", a.viewport.YOffset)
+	}
+}
+
+// TestApp_Update_SearchScreen_RestrictedKeymapDoesNotSwallowLetters is a
+// required regression test: App's shared viewport must never fall back to
+// viewport.DefaultKeyMap() (which binds vim letters j/k/f/b/u/d and space
+// to scrolling), or typing a Pokémon name containing any of those letters
+// - "pikachu" contains both "u" and "k" - would corrupt the Search
+// Screen's text input. See
+// docs/adr/0007-app-level-viewport-with-restricted-keymap-for-scrolling.md.
+func TestApp_Update_SearchScreen_RestrictedKeymapDoesNotSwallowLetters(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 25})
+	a = model.(App)
+	a.screen = screenSearch
+
+	for _, r := range "pikachu" {
+		model, _ := a.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		a = model.(App)
+	}
+
+	if got := a.search.input.Value(); got != "pikachu" {
+		t.Errorf("search.input.Value() = %q after typing \"pikachu\", want unchanged \"pikachu\" (a letter was swallowed by the viewport's keymap)", got)
+	}
+}
+
+// TestApp_Update_TypeSelect_ArrowsStillMoveCursorNotViewport proves the
+// Type Select Screen's Up/Down cursor navigation still works once it's
+// wrapped in App's shared viewport - the viewport must not compete with it
+// for those keys (see viewportPagingOnlyKeyMap).
+func TestApp_Update_TypeSelect_ArrowsStillMoveCursorNotViewport(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	a = model.(App)
+	a.screen = screenTypeSelect
+
+	model, _ = a.Update(tea.KeyMsg{Type: tea.KeyDown})
+	a = model.(App)
+
+	if a.typeSelect.cursor != 1 {
+		t.Errorf("typeSelect.cursor = %d after Down, want 1", a.typeSelect.cursor)
+	}
+}
+
+// TestApp_Update_TypeSelect_CursorAutoFollowsOffscreenRow proves the
+// viewport follows the cursor down the Type Select Screen's 18-type list
+// on a terminal too short to show all of them at once, so the selection
+// never scrolls silently out of view (see followCursor in typeselect.go).
+func TestApp_Update_TypeSelect_CursorAutoFollowsOffscreenRow(t *testing.T) {
+	a := NewApp(nil)
+	t.Cleanup(a.Close)
+	model, _ := a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
+	a = model.(App)
+	a.screen = screenTypeSelect
+
+	for range 15 {
+		model, _ = a.Update(tea.KeyMsg{Type: tea.KeyDown})
+		a = model.(App)
+	}
+
+	line := typeSelectHeaderLines + a.typeSelect.cursor
+	if line < a.viewport.YOffset || line >= a.viewport.YOffset+a.viewport.Height {
+		t.Errorf("cursor line %d is outside the visible window [%d, %d) after scrolling past it", line, a.viewport.YOffset, a.viewport.YOffset+a.viewport.Height)
 	}
 }

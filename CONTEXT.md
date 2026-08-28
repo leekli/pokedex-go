@@ -64,6 +64,16 @@ _Avoid_: Type screen, Types list, Species screen
 The screen reached from the Type Select Screen: a table of every Pokémon of the chosen type, in National Dex Number order, showing each one's Dex #, Name, and Generation where known. Esc returns to the Type Select Screen; selecting a Pokémon (by keyboard or, where supported, mouse) advances to the Result Screen for that Pokémon. Ctrl+C quits.
 _Avoid_: Type results screen, Type list screen, Pokémon by type screen
 
+**Scrollable**:
+Describes any screen whose rendered content is taller than the terminal:
+rather than truncating, the screen pages via ↑/↓ or PgUp/PgDn (and, where
+a screen's own cursor already uses Up/Down — the Type Select Screen — the
+cursor keeps moving as normal while the view follows it automatically).
+Every screen is Scrollable. Distinct from the Type Roster Screen's table,
+which scrolls its own rows independently of this — see
+[`docs/adr/0007`](./docs/adr/0007-app-level-viewport-with-restricted-keymap-for-scrolling.md).
+_Avoid_: Responsive, resizable, paginated
+
 **Generation**:
 The numbered era a Pokémon species was first introduced in (e.g. "Generation I" for the original 151), shown only on the Type Roster Screen. Distinct from a Pokémon's stats or types — purely a historical/release grouping.
 _Avoid_: Gen, era

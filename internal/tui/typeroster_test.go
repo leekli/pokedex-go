@@ -13,7 +13,7 @@ import (
 )
 
 func TestNewTypeRosterModel_StartsLoading(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 	if !m.loading {
 		t.Error("newTypeRosterModel().loading = false, want true")
 	}
@@ -23,7 +23,7 @@ func TestNewTypeRosterModel_StartsLoading(t *testing.T) {
 }
 
 func TestTypeRosterModel_View_ShowsLoadingSpinner(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 	view := m.View()
 
 	if !strings.Contains(view, "Loading Fire-type Pokémon") {
@@ -35,7 +35,7 @@ func TestTypeRosterModel_View_ShowsLoadingSpinner(t *testing.T) {
 }
 
 func TestTypeRosterModel_Update_ResultPopulatesTable(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
@@ -61,7 +61,7 @@ func TestTypeRosterModel_Update_ResultPopulatesTable(t *testing.T) {
 }
 
 func TestTypeRosterModel_Update_ResultError(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 
 	m, cmd := m.Update(typeRosterResultMsg{typeName: "fire", err: &pokeapi.ServiceError{}})
 
@@ -83,7 +83,7 @@ func TestTypeRosterModel_Update_ResultError(t *testing.T) {
 // (including Esc) are blocked until the roster has actually loaded,
 // mirroring the Search Screen's same guard.
 func TestTypeRosterModel_Update_KeysIgnoredWhileLoading(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
@@ -169,7 +169,7 @@ func TestTypeRosterModel_Update_EnterQueriesTheOriginalSlugNotTheDisplayName(t *
 	}))
 	t.Cleanup(server.Close)
 
-	m := newTypeRosterModel(pokeapi.NewClient(pokeapi.WithBaseURL(server.URL)), "fire")
+	m := newTypeRosterModel(pokeapi.NewClient(pokeapi.WithBaseURL(server.URL)), "fire", 40)
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
 		entries:  []pokeapi.TypeRosterEntry{{DexNumber: 4, Name: "charmander"}},
@@ -229,7 +229,7 @@ func TestTypeRosterModel_Update_LookupResultMsg_ErrorShowsInline(t *testing.T) {
 // load, with two rows, for tests that only care about post-load behavior.
 func loadedTypeRosterModel(t *testing.T) typeRosterModel {
 	t.Helper()
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 	m, _ = m.Update(typeRosterResultMsg{
 		typeName: "fire",
 		entries: []pokeapi.TypeRosterEntry{
@@ -244,7 +244,7 @@ func loadedTypeRosterModel(t *testing.T) typeRosterModel {
 // (unexpected, but possible) empty roster doesn't panic indexing a
 // nonexistent selected row.
 func TestTypeRosterModel_Update_EnterWithNoRowsIsNoOp(t *testing.T) {
-	m := newTypeRosterModel(nil, "fire")
+	m := newTypeRosterModel(nil, "fire", 40)
 	m, _ = m.Update(typeRosterResultMsg{typeName: "fire", entries: nil})
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -289,6 +289,29 @@ func TestTypeRosterModel_Update_UnknownMsgIsNoOp(t *testing.T) {
 
 	if cmd != nil {
 		t.Error("Update(unknown msg) returned a non-nil cmd, want nil")
+	}
+}
+
+// TestTypeRosterTableHeight covers the clamp on both ends and a value that
+// lands in between, computed from the terminal height minus this screen's
+// own chrome (see typeRosterTableChrome).
+func TestTypeRosterTableHeight(t *testing.T) {
+	tests := []struct {
+		name           string
+		terminalHeight int
+		want           int
+	}{
+		{"very small terminal clamps to the minimum", 5, typeRosterTableHeightMin},
+		{"unknown (zero) height clamps to the minimum", 0, typeRosterTableHeightMin},
+		{"mid-range terminal fits between the clamps", 12, 8},
+		{"large terminal clamps to the original fixed max", 100, typeRosterTableHeightMax},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := typeRosterTableHeight(tt.terminalHeight); got != tt.want {
+				t.Errorf("typeRosterTableHeight(%d) = %d, want %d", tt.terminalHeight, got, tt.want)
+			}
+		})
 	}
 }
 
