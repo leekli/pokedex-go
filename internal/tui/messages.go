@@ -42,9 +42,9 @@ func searchAgain() tea.Cmd {
 }
 
 // lookupResultMsg is what an in-flight lookupCmd resolves to: either a
-// successfully built StatBlock (with an optional sprite image — nil if
-// PokeAPI had no sprite, or the sprite fetch itself failed —, a
-// pokedexEntry, "" under the same best-effort terms (see
+// successfully built StatBlock (with optional front/back sprite images —
+// each nil if PokeAPI had no such sprite, or that sprite's fetch itself
+// failed —, a pokedexEntry, "" under the same best-effort terms (see
 // docs/adr/0003-prefer-generation-1-pokedex-entry-version.md), and a
 // typeEffectiveness, nil if any of the Pokémon's types' damage relations
 // failed to fetch — see
@@ -53,6 +53,7 @@ func searchAgain() tea.Cmd {
 type lookupResultMsg struct {
 	stat              pokemon.StatBlock
 	sprite            image.Image
+	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
 	err               error
@@ -64,15 +65,17 @@ type lookupResultMsg struct {
 type showResultMsg struct {
 	stat              pokemon.StatBlock
 	sprite            image.Image
+	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func showResult(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
+func showResult(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
 	return func() tea.Msg {
 		return showResultMsg{
 			stat:              stat,
 			sprite:            sprite,
+			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
 			typeEffectiveness: typeEffectiveness,
 		}

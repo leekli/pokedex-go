@@ -160,7 +160,7 @@ func TestApp_View_DelegatesToCurrentScreen(t *testing.T) {
 			a := NewApp(nil)
 			t.Cleanup(a.Close)
 			a.screen = tt.screen
-			a.result = newResultModel(testStatBlock(), nil, "", nil)
+			a.result = newResultModel(testStatBlock(), nil, nil, "", nil)
 
 			if view := a.View(); !strings.Contains(view, tt.want) {
 				t.Errorf("App.View() on %s screen missing %q\ngot:\n%s", tt.name, tt.want, view)

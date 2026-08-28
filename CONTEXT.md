@@ -29,7 +29,7 @@ The number a player means when they say "Pokémon #250" — resolved via PokeAPI
 _Avoid_: Pokédex number, dex id, pokemon id
 
 **Sprite**:
-The Pokémon image shown on the Result Screen — specifically PokeAPI's `sprites.front_default` variant (small, Gen-accurate pixel art), chosen to match the Generation 1 Pokédex look rather than PokeAPI's `official-artwork` (modern box-art render), which is out of scope for this screen.
+The Pokémon image(s) shown on the Result Screen, front and back side by side (front on the left, back on the right) — specifically PokeAPI's `sprites.front_default` and `sprites.back_default` variants (small, Gen-accurate pixel art), chosen to match the Generation 1 Pokédex look rather than PokeAPI's `official-artwork` (modern box-art render), which is out of scope for this screen. Either may be missing independently — each falls back on its own, and only when both are absent does the "No sprite available" fallback show.
 _Avoid_: Artwork, image, portrait
 
 **Pokédex Entry**:

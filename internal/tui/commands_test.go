@@ -133,6 +133,96 @@ func TestLookupCmd_NoSpriteURL(t *testing.T) {
 	}
 }
 
+// lookupCmdPikachuFrontBackJSONTemplate is lookupCmdPikachuJSONTemplate with
+// an added back_default slot, used only by the back-sprite tests below - the
+// front-sprite tests above don't need a back_default at all.
+const lookupCmdPikachuFrontBackJSONTemplate = `{
+	"id": 25,
+	"name": "pikachu",
+	"height": 4,
+	"weight": 60,
+	"types": [{"type": {"name": "electric"}}],
+	"stats": [{"base_stat": 35, "stat": {"name": "hp"}}],
+	"sprites": {"front_default": null, "back_default": %s}
+}`
+
+// newLookupCmdBackSpriteServer builds a fixture PokeAPI server serving
+// pikachu with a back_default sprite (and no front_default), whose route
+// responds with spriteStatus - the back-sprite equivalent of
+// newLookupCmdServer.
+func newLookupCmdBackSpriteServer(t *testing.T, spriteStatus int) *pokeapi.Client {
+	t.Helper()
+	var baseURL string
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuFrontBackJSONTemplate, fmt.Sprintf(`"%s/sprites/pikachu-back.png"`, baseURL))
+	})
+	mux.HandleFunc("/sprites/pikachu-back.png", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(spriteStatus)
+		if spriteStatus == http.StatusOK {
+			w.Write(commandsTestFixturePNG(t))
+		}
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	baseURL = server.URL
+	return pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+}
+
+// TestLookupCmd_BackSprite_Success proves a working back_default sprite is
+// fetched and decoded into lookupResultMsg.spriteBack, the same way the
+// front sprite is - see TestLookupCmd_Success.
+func TestLookupCmd_BackSprite_Success(t *testing.T) {
+	client := newLookupCmdBackSpriteServer(t, http.StatusOK)
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.spriteBack == nil {
+		t.Error("lookupResultMsg.spriteBack is nil, want a decoded image on a successful back sprite fetch")
+	}
+	if msg.sprite != nil {
+		t.Error("lookupResultMsg.sprite is non-nil, want nil (fixture has no front_default)")
+	}
+}
+
+// TestLookupCmd_BackSpriteFetchFailureStillSucceeds proves a failed
+// back_default fetch doesn't fail the overall lookup, leaving spriteBack nil
+// - the back-sprite equivalent of TestLookupCmd_SpriteFetchFailureStillSucceeds.
+func TestLookupCmd_BackSpriteFetchFailureStillSucceeds(t *testing.T) {
+	client := newLookupCmdBackSpriteServer(t, http.StatusInternalServerError)
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil (back sprite failure must not fail the lookup)", msg.err)
+	}
+	if msg.spriteBack != nil {
+		t.Error("lookupResultMsg.spriteBack is non-nil, want nil after a failed back sprite fetch")
+	}
+}
+
+// TestLookupCmd_NoBackSpriteURL proves a Pokémon with no back_default sprite
+// at all skips the back sprite fetch entirely and still succeeds - the
+// back-sprite equivalent of TestLookupCmd_NoSpriteURL.
+func TestLookupCmd_NoBackSpriteURL(t *testing.T) {
+	client := newLookupCmdServer(t, false, http.StatusOK)
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.spriteBack != nil {
+		t.Error("lookupResultMsg.spriteBack is non-nil, want nil when PokeAPI returned no back_default sprite URL")
+	}
+}
+
 const lookupCmdPikachuSpeciesJSON = `{
 	"id": 25,
 	"name": "pikachu",

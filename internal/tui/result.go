@@ -13,7 +13,14 @@ import (
 	"github.com/leekli/pokedex-go/internal/spriteart"
 )
 
-const spriteMaxWidth = 40
+// spriteMaxWidth caps the combined rendered width (in terminal columns) of
+// the front and back sprites shown side by side; spriteGap is the blank
+// column gap between them. When only one of the two sprites is available,
+// it alone gets the full spriteMaxWidth - see renderSprites.
+const (
+	spriteMaxWidth = 40
+	spriteGap      = 2
+)
 
 // resultCardWidth is the fixed width the Result Screen's card content is
 // centered/padded to, so the card's size doesn't jump around between
@@ -72,14 +79,16 @@ var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychi
 type resultModel struct {
 	stat              pokemon.StatBlock
 	sprite            image.Image
+	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func newResultModel(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
+func newResultModel(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
 	return resultModel{
 		stat:              stat,
 		sprite:            sprite,
+		spriteBack:        spriteBack,
 		pokedexEntry:      pokedexEntry,
 		typeEffectiveness: typeEffectiveness,
 	}
@@ -112,34 +121,30 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.pokedexEntry, m.typeEffectiveness)))
+	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.spriteBack, m.pokedexEntry, m.typeEffectiveness)))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
 	return b.String()
 }
 
-// renderResultCard renders the card's interior: title, sprite (or its "no
-// sprite" fallback), type badges, the Pokédex Entry (or its own fallback -
-// see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
+// renderResultCard renders the card's interior: title, sprites (front and
+// back, side by side - or a "no sprite" fallback if neither is available),
+// type badges, the Pokédex Entry (or its own fallback - see
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
 // Weaknesses & Resistances (or its own fallback - see
 // docs/adr/0004-all-or-nothing-type-effectiveness.md), height/weight, a
 // small dot flourish, and the base stats table - everything CONTEXT.md's
 // Stat Block already shows, just restyled, plus the two sections alongside
 // it.
-func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
+func renderResultCard(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
 	b.WriteString(resultCenterStyle.Render(resultTitleStyle.Render(title)))
 	b.WriteString("\n\n")
 
-	if sprite != nil {
-		art := spriteart.Render(sprite, spriteart.Options{MaxWidth: spriteMaxWidth})
-		b.WriteString(resultCenterStyle.Render(art))
-	} else {
-		b.WriteString(resultCenterStyle.Render(noSpriteStyle.Render("No sprite available")))
-	}
+	b.WriteString(resultCenterStyle.Render(renderSprites(sprite, spriteBack)))
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderTypeBadges(stat.Types)))
@@ -164,6 +169,32 @@ func renderResultCard(stat pokemon.StatBlock, sprite image.Image, pokedexEntry s
 	b.WriteString(renderStatTable(stat))
 
 	return b.String()
+}
+
+// renderSprites renders the front sprite on the left and the back sprite on
+// the right, separated by a spriteGap-wide blank column. Either may be nil
+// (PokeAPI had none, or its fetch failed - see lookupCmd), in which case
+// only the other is rendered; if both are nil, the "no sprite" fallback
+// message is shown instead. When both are present, each is capped to half
+// of spriteMaxWidth (minus the gap) so the pair fits side by side; a lone
+// sprite gets the full spriteMaxWidth, matching the Result Screen's
+// pre-back-sprite sizing.
+func renderSprites(sprite, spriteBack image.Image) string {
+	if sprite == nil && spriteBack == nil {
+		return noSpriteStyle.Render("No sprite available")
+	}
+	if sprite != nil && spriteBack != nil {
+		halfWidth := (spriteMaxWidth - spriteGap) / 2
+		front := spriteart.Render(sprite, spriteart.Options{MaxWidth: halfWidth})
+		back := spriteart.Render(spriteBack, spriteart.Options{MaxWidth: halfWidth})
+		return lipgloss.JoinHorizontal(lipgloss.Top, front, strings.Repeat(" ", spriteGap), back)
+	}
+
+	img := sprite
+	if img == nil {
+		img = spriteBack
+	}
+	return spriteart.Render(img, spriteart.Options{MaxWidth: spriteMaxWidth})
 }
 
 func renderHeightWeight(stat pokemon.StatBlock) string {

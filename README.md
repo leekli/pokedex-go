@@ -35,11 +35,11 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
   scrollable table of every real Pokémon of that type, in National Dex
   Number order, with its generation where known — and selecting a row opens
   that Pokémon's Result Screen, same as a direct name/number search.
-- **Result Screen** — the Pokémon's sprite, rendered as colored terminal
-  block art, plus a Gen-1-styled stat block: Pokédex #, name, type badges
-  (color-coded per type), height and weight in imperial units (matching the
-  original English games), and base stats (HP, Attack, Defense, Sp. Atk,
-  Sp. Def, Speed).
+- **Result Screen** — the Pokémon's front and back sprites side by side,
+  rendered as colored terminal block art, plus a Gen-1-styled stat block:
+  Pokédex #, name, type badges (color-coded per type), height and weight in
+  imperial units (matching the original English games), and base stats (HP,
+  Attack, Defense, Sp. Atk, Sp. Def, Speed).
 - **Pokédex Entry** — the classic Pokédex description text, preferring a
   Generation I game version (Red, Blue, then Yellow) to match the app's
   styling elsewhere.
@@ -202,10 +202,13 @@ input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. `lookupCmd`
 then makes further, per-Pokémon fetches for the Result Screen's other
 sections, each with its own failure contract:
 
-- **Sprite** and **Pokédex Entry** are best-effort — a failed fetch just
-  shows that section's fallback message ("No sprite available" /
-  "No Pokédex entry available.") rather than failing the whole lookup. The
-  Pokédex Entry prefers a Generation I game version where one exists — see
+- **Sprite** (front and back, fetched independently) and **Pokédex Entry**
+  are best-effort — a failed fetch just leaves that image blank / shows the
+  section's fallback message ("No sprite available" /
+  "No Pokédex entry available.") rather than failing the whole lookup; the
+  Sprite falls back to "No sprite available" only if both front and back
+  fail. The Pokédex Entry prefers a Generation I game version where one
+  exists — see
   [`docs/adr/0003`](./docs/adr/0003-prefer-generation-1-pokedex-entry-version.md).
 - **Weaknesses & Resistances** is all-or-nothing instead: it needs a
   `GetTypeDamageRelations` call per one of the Pokémon's types (1 or 2),

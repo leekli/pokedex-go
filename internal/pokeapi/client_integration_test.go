@@ -29,6 +29,22 @@ const pikachuPokemonJSON = `{
 	"sprites": {"front_default": "https://example.invalid/sprites/pikachu.png"}
 }`
 
+// pikachuPokemonWithBackSpriteJSON adds a back_default sprite on top of
+// pikachuPokemonJSON's shape, to prove GetPokemon decodes it into
+// Pokemon.SpriteBackURL the same way front_default decodes into SpriteURL.
+const pikachuPokemonWithBackSpriteJSON = `{
+	"id": 25,
+	"name": "pikachu",
+	"height": 4,
+	"weight": 60,
+	"types": [{"type": {"name": "electric"}}],
+	"stats": [{"base_stat": 35, "stat": {"name": "hp"}}],
+	"sprites": {
+		"front_default": "https://example.invalid/sprites/pikachu.png",
+		"back_default": "https://example.invalid/sprites/pikachu-back.png"
+	}
+}`
+
 const pikachuSpeciesJSON = `{
 	"id": 25,
 	"name": "pikachu",
@@ -99,6 +115,25 @@ func TestGetPokemon_Success(t *testing.T) {
 	}
 	if got.Stats["special-attack"] != 50 {
 		t.Errorf("GetPokemon stats not decoded correctly: %+v", got.Stats)
+	}
+}
+
+// TestGetPokemon_DecodesBackSprite proves back_default decodes into
+// Pokemon.SpriteBackURL, independently of front_default/SpriteURL.
+func TestGetPokemon_DecodesBackSprite(t *testing.T) {
+	_, client := newFixtureServer(t, map[string]fixtureResponse{
+		"/pokemon/pikachu": {status: http.StatusOK, body: pikachuPokemonWithBackSpriteJSON},
+	})
+
+	got, err := client.GetPokemon(context.Background(), "pikachu")
+	if err != nil {
+		t.Fatalf("GetPokemon returned error: %v", err)
+	}
+	if got.SpriteURL != "https://example.invalid/sprites/pikachu.png" {
+		t.Errorf("GetPokemon.SpriteURL = %q, want the front_default URL", got.SpriteURL)
+	}
+	if got.SpriteBackURL != "https://example.invalid/sprites/pikachu-back.png" {
+		t.Errorf("GetPokemon.SpriteBackURL = %q, want the back_default URL", got.SpriteBackURL)
 	}
 }
 

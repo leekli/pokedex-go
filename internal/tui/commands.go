@@ -15,8 +15,8 @@ import (
 const lookupTimeout = 10 * time.Second
 
 // lookupCmd resolves q against PokeAPI and reports the outcome as a
-// lookupResultMsg. The sprite fetch and the Pokédex Entry fetch are
-// best-effort: a failure in either leaves that field blank (image.Image nil
+// lookupResultMsg. The front/back sprite fetches and the Pokédex Entry fetch
+// are best-effort: a failure in any leaves that field blank (image.Image nil
 // / string "") rather than failing the overall lookup, since a missing
 // sprite or description is never worse than losing an otherwise-successful
 // stat lookup over it. The Pokédex Entry comes from a second, separate
@@ -47,6 +47,13 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 			}
 		}
 
+		var spriteBack image.Image
+		if p.SpriteBackURL != "" {
+			if img, spriteErr := client.FetchSprite(ctx, p.SpriteBackURL); spriteErr == nil {
+				spriteBack = img
+			}
+		}
+
 		var pokedexEntry string
 		if species, speciesErr := client.GetSpecies(ctx, q.Value); speciesErr == nil {
 			pokedexEntry = pokeapi.SelectPokedexEntry(species.FlavorTextEntries)
@@ -57,6 +64,7 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 		return lookupResultMsg{
 			stat:              stat,
 			sprite:            sprite,
+			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
 			typeEffectiveness: typeEffectiveness,
 		}

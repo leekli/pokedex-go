@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/leekli/pokedex-go/internal/pokemon"
+	"github.com/leekli/pokedex-go/internal/spriteart"
 )
 
 func TestCapitalize(t *testing.T) {
@@ -46,7 +47,7 @@ func testStatBlock() pokemon.StatBlock {
 func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
-	m := newResultModel(testStatBlock(), img, "", nil)
+	m := newResultModel(testStatBlock(), img, nil, "", nil)
 	view := m.View()
 
 	for _, want := range []string{
@@ -75,7 +76,7 @@ func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 // fallback (sprite == nil) still renders inside the new card, with the rest
 // of the Stat Block unaffected.
 func TestResultModel_View_NoSprite(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 	view := m.View()
 
 	if !strings.Contains(view, "No sprite available") {
@@ -86,10 +87,50 @@ func TestResultModel_View_NoSprite(t *testing.T) {
 	}
 }
 
+// TestResultModel_View_FrontAndBackSprites proves that when both a front and
+// a back sprite are available, both are rendered side by side (front on the
+// left, back on the right) rather than only the front sprite showing.
+func TestResultModel_View_FrontAndBackSprites(t *testing.T) {
+	front := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	front.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
+	back := image.NewNRGBA(image.Rect(0, 0, 2, 2))
+	back.Set(0, 0, color.NRGBA{R: 0, G: 100, B: 255, A: 255})
+
+	m := newResultModel(testStatBlock(), front, back, "", nil)
+	view := m.View()
+
+	frontOnly := renderSprites(front, nil)
+	backOnly := renderSprites(nil, back)
+	if !strings.Contains(view, strings.SplitN(frontOnly, "\n", 2)[0]) {
+		t.Errorf("resultModel.View() missing the front sprite's first rendered line\ngot:\n%s", view)
+	}
+	if !strings.Contains(view, strings.SplitN(backOnly, "\n", 2)[0]) {
+		t.Errorf("resultModel.View() missing the back sprite's first rendered line\ngot:\n%s", view)
+	}
+	if strings.Contains(view, "No sprite available") {
+		t.Errorf("resultModel.View() with both sprites should not show the fallback message\ngot:\n%s", view)
+	}
+}
+
+// TestRenderSprites_LoneSpriteUsesFullWidth proves that with only one of
+// front/back available, renderSprites renders it at the full spriteMaxWidth
+// (matching spriteart.Render directly), rather than shrinking it to the
+// half-width used when both sprites are shown side by side.
+func TestRenderSprites_LoneSpriteUsesFullWidth(t *testing.T) {
+	front := image.NewNRGBA(image.Rect(0, 0, 8, 8))
+	front.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
+
+	got := renderSprites(front, nil)
+	want := spriteart.Render(front, spriteart.Options{MaxWidth: spriteMaxWidth})
+	if got != want {
+		t.Errorf("renderSprites(front, nil) = %q, want %q (full spriteMaxWidth)", got, want)
+	}
+}
+
 // TestResultModel_View_ShowsPokedexEntry proves a non-empty pokedexEntry
 // renders on the card - see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
 func TestResultModel_View_ShowsPokedexEntry(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "A mysterious, flame-spitting Pokémon.", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "A mysterious, flame-spitting Pokémon.", nil)
 	view := m.View()
 
 	if !strings.Contains(view, "A mysterious, flame-spitting Pokémon.") {
@@ -104,7 +145,7 @@ func TestResultModel_View_ShowsPokedexEntry(t *testing.T) {
 // (no English entry existed, or the fetch failed) shows a fallback message
 // rather than an empty gap, the same way a nil sprite does.
 func TestResultModel_View_NoPokedexEntryFallback(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 	view := m.View()
 
 	if !strings.Contains(view, "No Pokédex entry available.") {
@@ -139,7 +180,7 @@ func charizardTypeEffectiveness() *pokemon.TypeEffectiveness {
 // Resistances section renders weaknesses, resistances, and immunities with
 // their multipliers - see docs/adr/0004-all-or-nothing-type-effectiveness.md.
 func TestResultModel_View_ShowsTypeEffectiveness(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", charizardTypeEffectiveness())
+	m := newResultModel(testStatBlock(), nil, nil, "", charizardTypeEffectiveness())
 	view := m.View()
 
 	for _, want := range []string{
@@ -160,7 +201,7 @@ func TestResultModel_View_ShowsTypeEffectiveness(t *testing.T) {
 // typeEffectiveness (a damage relations fetch failed) shows a fallback
 // message rather than an empty gap or, worse, a partial/wrong chart.
 func TestResultModel_View_TypeEffectivenessUnavailableFallback(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 	view := m.View()
 
 	if !strings.Contains(view, "Weaknesses & resistances unavailable.") {
@@ -173,7 +214,7 @@ func TestResultModel_View_TypeEffectivenessUnavailableFallback(t *testing.T) {
 // blank line, so it reads as a confirmed fact rather than missing data.
 func TestResultModel_View_TypeEffectivenessNoneShowsExplicitly(t *testing.T) {
 	te := &pokemon.TypeEffectiveness{}
-	m := newResultModel(testStatBlock(), nil, "", te)
+	m := newResultModel(testStatBlock(), nil, nil, "", te)
 	view := m.View()
 
 	if !strings.Contains(view, "Weak to    None") {
@@ -236,7 +277,7 @@ func TestRenderStatBar(t *testing.T) {
 // TestResultModel_Update_NonKeyMsgIgnored proves a message that isn't a
 // key press (e.g. a stray tick from another screen) is simply ignored.
 func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 
 	got, cmd := m.Update(struct{}{})
 
@@ -253,7 +294,7 @@ func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
 // (see docs/adr/0001-navigation-history-for-back-navigation.md and
 // result_navigation_test.go for the full-flow e2e equivalent).
 func TestResultModel_Update_EscGoesBack(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
@@ -269,7 +310,7 @@ func TestResultModel_Update_EscGoesBack(t *testing.T) {
 // meaning - "look up another Pokémon" - regardless of how this screen was
 // reached (see docs/adr/0001).
 func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -282,7 +323,7 @@ func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
 }
 
 func TestResultModel_Update_QQuits(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 
@@ -297,7 +338,7 @@ func TestResultModel_Update_QQuits(t *testing.T) {
 // TestResultModel_Update_UnhandledKeyNoOp proves a key with no binding on
 // this screen (there's no free-text input here) is simply ignored.
 func TestResultModel_Update_UnhandledKeyNoOp(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil)
 
 	got, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
 
