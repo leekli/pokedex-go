@@ -300,10 +300,15 @@ func (m searchModel) View() string {
 // searchBallArt renders a small Poké Ball as colored block art, echoing the
 // badge on the Splash Screen (see splash_legend.go) at Search Screen scale.
 // Each of the 7 lines is pre-styled and equal width (11 cells) so they line
-// up cleanly against the title/subtitle text View places beside them.
+// up cleanly against the title/subtitle text View places beside them. The
+// band row carries a single white button dot at its center, the same
+// small-but-present detail the Splash Screen's badge has (see
+// assets/splash.txt's own white button pixels) - at this scale there's only
+// room for the one row, so it's just the button's center, not the
+// full multi-row diamond the larger splash art can afford.
 func searchBallArt() [7]string {
 	top := ballOutlineStyle.Render("  ▄▄▄▄▄▄▄  ")
-	band := ballOutlineStyle.Render(" █▄▄▄▄▄▄▄█ ")
+	band := ballOutlineStyle.Render(" █▄▄▄") + ballWhiteStyle.Render("●") + ballOutlineStyle.Render("▄▄▄█ ")
 	bottom := ballOutlineStyle.Render("  ▀▀▀▀▀▀▀  ")
 	redRow := ballOutlineStyle.Render(" █") + ballRedStyle.Render("▓▓▓▓▓▓▓") + ballOutlineStyle.Render("█ ")
 	whiteRow := ballOutlineStyle.Render(" █") + ballWhiteStyle.Render("░░░░░░░") + ballOutlineStyle.Render("█ ")

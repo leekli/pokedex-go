@@ -28,6 +28,27 @@ func TestSearchBallArt_LinesAreAligned(t *testing.T) {
 	}
 }
 
+// TestSearchBallArt_BandRowHasButtonDot proves the band row (index 3, the
+// black belt between the ball's red and white halves) carries a white
+// button dot, echoing the Splash Screen badge's own button pixels (see
+// assets/splash.txt) rather than a plain unbroken band.
+func TestSearchBallArt_BandRowHasButtonDot(t *testing.T) {
+	lines := searchBallArt()
+	band := lines[3]
+
+	if !strings.Contains(band, "●") {
+		t.Errorf("searchBallArt()[3] (the band row) = %q, want it to contain a button dot (●)", band)
+	}
+	for i, line := range lines {
+		if i == 3 {
+			continue
+		}
+		if strings.Contains(line, "●") {
+			t.Errorf("searchBallArt()[%d] = %q, the button dot should only appear on the band row", i, line)
+		}
+	}
+}
+
 // TestSearchModel_View_ShowsExpectedCopy is a smoke test for the Playful
 // Maximalist redesign's static content: the title, instruction, dex-range
 // hint, and example queries should all appear on the idle Search Screen.
