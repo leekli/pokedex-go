@@ -181,7 +181,7 @@ func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Imag
 	b.WriteString(resultCenterStyle.Render(renderDotFlourish(resultFlourishTypes)))
 	b.WriteString("\n\n")
 
-	b.WriteString(renderStatTable(stat))
+	b.WriteString(resultCenterStyle.Render(renderStatTable(stat)))
 
 	return b.String()
 }
