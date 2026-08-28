@@ -46,17 +46,44 @@ const pikachuPokemonJSONTemplate = `{
 	"sprites": {"front_default": "%s/sprites/pikachu.png"}
 }`
 
-// pikachuSpeciesJSON includes a Generation I flavor text entry so the
-// Search flow can assert the Pokédex Entry actually reaches the rendered
-// Result Screen end-to-end - see
-// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
-const pikachuSpeciesJSON = `{
+// pikachuSpeciesJSONTemplate includes a Generation I flavor text entry so
+// the Search flow can assert the Pokédex Entry actually reaches the
+// rendered Result Screen end-to-end - see
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md. Its
+// evolution_chain URL points back at this same server's /evolution-chain/10
+// route (see pikachuEvolutionChainJSON), so the Evolution Chain gets the
+// same end-to-end coverage.
+const pikachuSpeciesJSONTemplate = `{
 	"id": 25,
 	"name": "pikachu",
 	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}],
 	"flavor_text_entries": [
 		{"flavor_text": "When several of\nthese Pokémon gather,\ntheir electricity could\nbuild and cause lightning\nstorms.", "language": {"name": "en"}, "version": {"name": "red"}}
-	]
+	],
+	"evolution_chain": {"url": "%s/evolution-chain/10/"}
+}`
+
+// pikachuEvolutionChainJSON is Pikachu's real evolution family, served for
+// /evolution-chain/10: Pichu (root) -> Pikachu (high friendship) -> Raichu
+// (Thunder Stone) - see docs/adr/0006-scope-evolution-condition-text-to-common-cases.md.
+const pikachuEvolutionChainJSON = `{
+	"chain": {
+		"species": {"name": "pichu", "url": "https://pokeapi.co/api/v2/pokemon-species/172/"},
+		"evolution_details": [],
+		"evolves_to": [
+			{
+				"species": {"name": "pikachu", "url": "https://pokeapi.co/api/v2/pokemon-species/25/"},
+				"evolution_details": [{"trigger": {"name": "level-up"}, "min_happiness": 220, "version_group": {"name": "red-blue"}}],
+				"evolves_to": [
+					{
+						"species": {"name": "raichu", "url": "https://pokeapi.co/api/v2/pokemon-species/26/"},
+						"evolution_details": [{"trigger": {"name": "use-item"}, "item": {"name": "thunder-stone"}, "version_group": {"name": "red-blue"}}],
+						"evolves_to": []
+					}
+				]
+			}
+		]
+	}
 }`
 
 // charmanderPokemonJSON is served for /pokemon/charmander, so the Type
@@ -166,10 +193,14 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 		switch r.PathValue("id") {
 		case "25", "pikachu":
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(pikachuSpeciesJSON))
+			fmt.Fprintf(w, pikachuSpeciesJSONTemplate, baseURL)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
+	})
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(pikachuEvolutionChainJSON))
 	})
 	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")

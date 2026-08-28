@@ -45,7 +45,9 @@ func searchAgain() tea.Cmd {
 // successfully built StatBlock (with optional front/back sprite images —
 // each nil if PokeAPI had no such sprite, or that sprite's fetch itself
 // failed —, a pokedexEntry, "" under the same best-effort terms (see
-// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md), and a
+// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md), an
+// evolutionChain, nil under those same best-effort terms (see
+// docs/adr/0006-scope-evolution-condition-text-to-common-cases.md), and a
 // typeEffectiveness, nil if any of the Pokémon's types' damage relations
 // failed to fetch — see
 // docs/adr/0004-all-or-nothing-type-effectiveness.md) or an error from the
@@ -55,6 +57,7 @@ type lookupResultMsg struct {
 	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
+	evolutionChain    *pokemon.EvolutionChain
 	typeEffectiveness *pokemon.TypeEffectiveness
 	err               error
 }
@@ -67,16 +70,18 @@ type showResultMsg struct {
 	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
+	evolutionChain    *pokemon.EvolutionChain
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func showResult(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
+func showResult(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, evolutionChain *pokemon.EvolutionChain, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
 	return func() tea.Msg {
 		return showResultMsg{
 			stat:              stat,
 			spriteFront:       spriteFront,
 			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
+			evolutionChain:    evolutionChain,
 			typeEffectiveness: typeEffectiveness,
 		}
 	}

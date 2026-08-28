@@ -241,9 +241,9 @@ func TestPokemonIDFromURL(t *testing.T) {
 		{"", 0, false},
 	}
 	for _, tt := range tests {
-		id, ok := pokemonIDFromURL(tt.url)
+		id, ok := resourceIDFromURL(tt.url)
 		if id != tt.wantID || ok != tt.wantOK {
-			t.Errorf("pokemonIDFromURL(%q) = (%d, %v), want (%d, %v)", tt.url, id, ok, tt.wantID, tt.wantOK)
+			t.Errorf("resourceIDFromURL(%q) = (%d, %v), want (%d, %v)", tt.url, id, ok, tt.wantID, tt.wantOK)
 		}
 	}
 }

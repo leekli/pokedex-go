@@ -326,6 +326,154 @@ func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry(t *testing.T)
 	}
 }
 
+// lookupCmdPikachuSpeciesWithEvolutionChainJSON is lookupCmdPikachuSpeciesJSON
+// with an evolution_chain URL added, used only by the Evolution Chain
+// tests below - the Pokédex Entry tests above don't need one at all.
+const lookupCmdPikachuSpeciesWithEvolutionChainJSON = `{
+	"id": 25,
+	"name": "pikachu",
+	"varieties": [{"is_default": true, "pokemon": {"name": "pikachu"}}],
+	"flavor_text_entries": [
+		{"flavor_text": "A strange melody plays.", "language": {"name": "en"}, "version": {"name": "red"}}
+	],
+	"evolution_chain": {"url": "https://pokeapi.co/api/v2/evolution-chain/10/"}
+}`
+
+// lookupCmdPichuPikachuRaichuChainJSON is a minimal but real-shaped
+// GET /evolution-chain/10 fixture: Pichu (root) -> Pikachu (high
+// friendship) -> Raichu (Thunder Stone) - the same family used throughout
+// internal/pokeapi's own evolution chain tests.
+const lookupCmdPichuPikachuRaichuChainJSON = `{
+	"chain": {
+		"species": {"name": "pichu", "url": "https://pokeapi.co/api/v2/pokemon-species/172/"},
+		"evolution_details": [],
+		"evolves_to": [
+			{
+				"species": {"name": "pikachu", "url": "https://pokeapi.co/api/v2/pokemon-species/25/"},
+				"evolution_details": [{"trigger": {"name": "level-up"}, "min_happiness": 220, "version_group": {"name": "red-blue"}}],
+				"evolves_to": [
+					{
+						"species": {"name": "raichu", "url": "https://pokeapi.co/api/v2/pokemon-species/26/"},
+						"evolution_details": [{"trigger": {"name": "use-item"}, "item": {"name": "thunder-stone"}, "version_group": {"name": "red-blue"}}],
+						"evolves_to": []
+					}
+				]
+			}
+		]
+	}
+}`
+
+// TestLookupCmd_IncludesEvolutionChain proves a successful lookup also
+// populates lookupResultMsg.evolutionChain, from the same species fetch
+// the Pokédex Entry already uses (see GetEvolutionChain and
+// docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
+func TestLookupCmd_IncludesEvolutionChain(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
+	})
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPichuPikachuRaichuChainJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.evolutionChain == nil {
+		t.Fatal("lookupResultMsg.evolutionChain is nil, want a populated chain on a successful fetch")
+	}
+	if msg.evolutionChain.Root.Name != "pichu" {
+		t.Errorf("evolutionChain.Root.Name = %q, want pichu", msg.evolutionChain.Root.Name)
+	}
+}
+
+// TestLookupCmd_EvolutionChainFetchFailureStillSucceeds proves a failed
+// evolution-chain fetch (species succeeds, but GetEvolutionChain doesn't)
+// leaves evolutionChain nil rather than failing the overall lookup -
+// best-effort, the same as a failed sprite or Pokédex Entry fetch.
+func TestLookupCmd_EvolutionChainFetchFailureStillSucceeds(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
+	})
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	msg := runLookupCmd(t, client)
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil (an evolution chain failure must not fail the lookup)", msg.err)
+	}
+	if msg.evolutionChain != nil {
+		t.Errorf("lookupResultMsg.evolutionChain = %+v, want nil after a failed evolution chain fetch", msg.evolutionChain)
+	}
+	if msg.pokedexEntry != "A strange melody plays." {
+		t.Errorf("lookupResultMsg.pokedexEntry = %q, want the species fetch's own success to still populate it", msg.pokedexEntry)
+	}
+}
+
+// TestLookupCmd_DexNumberQueryReusesSpeciesCacheForEvolutionChain proves a
+// DexNumber query's Evolution Chain fetch reuses the same cached species
+// call the Pokédex Entry fetch already reuses (see
+// TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry) - species
+// is fetched once, not once per feature that reads from it.
+func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForEvolutionChain(t *testing.T) {
+	hits := 0
+	mux := http.NewServeMux()
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
+	})
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
+	})
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(lookupCmdPichuPikachuRaichuChainJSON))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	client := pokeapi.NewClient(pokeapi.WithBaseURL(server.URL))
+
+	cmd := lookupCmd(client, pokemon.Query{Kind: pokemon.DexNumber, Value: "25"})
+	msg, ok := cmd().(lookupResultMsg)
+	if !ok {
+		t.Fatalf("lookupCmd() produced %T, want lookupResultMsg", cmd())
+	}
+
+	if msg.err != nil {
+		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
+	}
+	if msg.evolutionChain == nil || msg.evolutionChain.Root.Name != "pichu" {
+		t.Errorf("evolutionChain = %+v, want a populated Pichu-rooted chain", msg.evolutionChain)
+	}
+	if hits != 1 {
+		t.Errorf("/pokemon-species/25 was hit %d times, want 1 (both the Pokédex Entry and Evolution Chain fetches should reuse Lookup's own cached species call)", hits)
+	}
+}
+
 // lookupCmdElectricTypeJSON is Electric's real type chart (weak to Ground;
 // resists Electric, Flying, Steel), used to prove lookupCmd's single-type
 // (Pikachu) path.

@@ -23,7 +23,9 @@ func TestSearch_SuccessfulLookupByNameShowsResultScreen(t *testing.T) {
 		// card's width and the wrap point would otherwise land mid-string.
 		"When several of these Pokémon gather, their electricity could build",
 		"and cause lightning storms.",
-		"Weak to", "Ground", "Resists")
+		"Weak to", "Ground", "Resists",
+		// The Evolution Chain (see docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
+		"Pichu", "Pikachu", "Raichu")
 }
 
 func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
@@ -40,7 +42,9 @@ func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
 		// card's width and the wrap point would otherwise land mid-string.
 		"When several of these Pokémon gather, their electricity could build",
 		"and cause lightning storms.",
-		"Weak to", "Ground", "Resists")
+		"Weak to", "Ground", "Resists",
+		// The Evolution Chain (see docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
+		"Pichu", "Pikachu", "Raichu")
 }
 
 // advanceToSearchScreen presses Enter on the Splash Screen and waits for the

@@ -83,7 +83,7 @@ func (c *Client) getTypeDetails(ctx context.Context, typeName string) (typeDetai
 
 	roster := make([]TypeRosterEntry, 0, len(dto.Pokemon))
 	for _, p := range dto.Pokemon {
-		id, ok := pokemonIDFromURL(p.Pokemon.URL)
+		id, ok := resourceIDFromURL(p.Pokemon.URL)
 		if !ok || id >= nonDefaultVarietyIDFloor {
 			continue
 		}
@@ -140,10 +140,15 @@ func (c *Client) GetTypeDamageRelations(ctx context.Context, typeName string) (T
 	return details.damageRelations, nil
 }
 
-// pokemonIDFromURL extracts the trailing numeric id from a PokeAPI resource
-// URL, e.g. "https://pokeapi.co/api/v2/pokemon/25/" -> 25, false if the URL
-// doesn't end in a numeric path segment.
-func pokemonIDFromURL(url string) (int, bool) {
+// resourceIDFromURL extracts the trailing numeric id from a PokeAPI
+// resource URL, e.g. "https://pokeapi.co/api/v2/pokemon/25/" -> 25, or
+// "https://pokeapi.co/api/v2/evolution-chain/10/" -> 10 - false if the URL
+// doesn't end in a numeric path segment. Shared by every resource type
+// whose id pokedex-go needs from an embedded {name, url} reference, rather
+// than PokeAPI's own numeric ids (pokémon, generation species, evolution
+// chains); see GetGenerationIndex and GetEvolutionChain's callers for the
+// others.
+func resourceIDFromURL(url string) (int, bool) {
 	trimmed := strings.TrimSuffix(url, "/")
 	segment := trimmed[strings.LastIndex(trimmed, "/")+1:]
 	id, err := strconv.Atoi(segment)

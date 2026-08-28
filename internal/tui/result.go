@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -89,15 +90,17 @@ type resultModel struct {
 	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
+	evolutionChain    *pokemon.EvolutionChain
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func newResultModel(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
+func newResultModel(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, evolutionChain *pokemon.EvolutionChain, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
 	return resultModel{
 		stat:              stat,
 		spriteFront:       spriteFront,
 		spriteBack:        spriteBack,
 		pokedexEntry:      pokedexEntry,
+		evolutionChain:    evolutionChain,
 		typeEffectiveness: typeEffectiveness,
 	}
 }
@@ -129,7 +132,7 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.spriteFront, m.spriteBack, m.pokedexEntry, m.typeEffectiveness)))
+	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.spriteFront, m.spriteBack, m.pokedexEntry, m.evolutionChain, m.typeEffectiveness)))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
@@ -138,14 +141,15 @@ func (m resultModel) View() string {
 
 // renderResultCard renders the card's interior: title, sprites (front and
 // back, side by side - or a "no sprite" fallback if neither is available),
-// type badges, the Pokédex Entry (or its own fallback - see
+// type badges, the Evolution Chain (or its own fallback - see
+// docs/adr/0006-scope-evolution-condition-text-to-common-cases.md), the
+// Pokédex Entry (or its own fallback - see
 // docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
 // Weaknesses & Resistances (or its own fallback - see
 // docs/adr/0004-all-or-nothing-type-effectiveness.md), height/weight, a
 // small dot flourish, and the base stats table - everything CONTEXT.md's
-// Stat Block already shows, just restyled, plus the two sections alongside
-// it.
-func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
+// Stat Block already shows, just restyled, plus the sections alongside it.
+func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, evolutionChain *pokemon.EvolutionChain, typeEffectiveness *pokemon.TypeEffectiveness) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
@@ -156,6 +160,9 @@ func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Imag
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderTypeBadges(stat.Types)))
+	b.WriteString("\n\n")
+
+	b.WriteString(resultCenterStyle.Render(renderEvolutionChain(stat.DexNumber, evolutionChain)))
 	b.WriteString("\n\n")
 
 	if pokedexEntry != "" {
@@ -203,6 +210,137 @@ func renderSprites(spriteFront, spriteBack image.Image) string {
 		img = spriteBack
 	}
 	return spriteart.Render(img, spriteart.Options{MaxWidth: spriteMaxWidth})
+}
+
+// evolutionArrow and evolutionSlash separate consecutive names in the
+// Evolution Chain breadcrumb: an arrow between stages on the path to the
+// currently-viewed Pokémon, a slash between siblings the current stage
+// could evolve into (e.g. Eevee's many evolutions).
+const (
+	evolutionArrow = " → "
+	evolutionSlash = " / "
+)
+
+// renderEvolutionChain renders the Evolution Chain (see CONTEXT.md) as a
+// centered breadcrumb: every stage from the chain's root up to the
+// currently-viewed Pokémon (highlighted), followed by what it evolves into
+// next (if anything - siblings from a branch like Eevee's are slash-
+// separated), with each transition's condition annotated on a second line
+// roughly beneath the name it leads into. nil (the chain fetch failed, or
+// PokeAPI had none) shows a fallback message instead - best-effort, the
+// same as the Sprite and Pokédex Entry (see lookupCmd's doc comment). A
+// Pokémon with no evolution relations at all (e.g. Tauros) shows "Does not
+// evolve" instead - real information, not a degraded/failure state.
+func renderEvolutionChain(dexNumber int, chain *pokemon.EvolutionChain) string {
+	if chain == nil {
+		return resultFallbackStyle.Render("Evolution data unavailable")
+	}
+
+	path := evolutionPathTo(chain.Root, dexNumber, nil)
+	if len(path) == 0 {
+		// Defensive: the Result Screen's own Pokémon should always be
+		// somewhere in its own Evolution Chain.
+		return resultFallbackStyle.Render("Evolution data unavailable")
+	}
+
+	current := path[len(path)-1]
+	if len(path) == 1 && len(current.EvolvesTo) == 0 {
+		return "Does not evolve"
+	}
+
+	segments := make([]evolutionSegment, 0, len(path)+len(current.EvolvesTo))
+	for i, stage := range path {
+		segments = append(segments, evolutionSegment{
+			name:      stage.Name,
+			current:   i == len(path)-1,
+			condition: stage.Condition,
+		})
+	}
+	branchStart := len(segments)
+	for _, child := range current.EvolvesTo {
+		segments = append(segments, evolutionSegment{name: child.Name, condition: child.Condition})
+	}
+
+	return renderEvolutionBreadcrumb(segments, branchStart)
+}
+
+// evolutionPathTo walks stage's subtree looking for dexNumber, returning
+// the path from the original root down to (and including) the matching
+// stage, or nil if dexNumber isn't found anywhere in it. ancestors is the
+// path so far (nil at the top-level call); a fresh slice is built at each
+// step rather than appending into a shared one, so sibling branches never
+// alias the same backing array.
+func evolutionPathTo(stage pokemon.EvolutionStage, dexNumber int, ancestors []pokemon.EvolutionStage) []pokemon.EvolutionStage {
+	path := append(append([]pokemon.EvolutionStage{}, ancestors...), stage)
+	if stage.DexNumber == dexNumber {
+		return path
+	}
+	for _, child := range stage.EvolvesTo {
+		if found := evolutionPathTo(child, dexNumber, path); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// evolutionSegment is one name shown in the Evolution Chain breadcrumb: a
+// stage on the path to the currently-viewed Pokémon, or one of that
+// Pokémon's own possible evolutions. current marks the Pokémon actually
+// being viewed, rendered highlighted; condition is the text describing the
+// transition leading into this segment, "" only for the chain's root
+// (which has no incoming transition to describe).
+type evolutionSegment struct {
+	name      string
+	current   bool
+	condition string
+}
+
+// renderEvolutionBreadcrumb lays segments out left to right - arrow-joined,
+// except between branchStart's siblings (a branch's second child onward),
+// which are slash-joined instead - with a second line beneath annotating
+// each segment's condition directly under its name. The transition from
+// the currently-viewed stage into its first child is still an arrow: only
+// siblings of that first child (Eevee's second, third, ... evolution) are
+// slash-separated from one another.
+//
+// Each segment reserves a column width of max(name width, condition
+// width) - a condition ("high friendship") is very often wider than the
+// name above it ("Pikachu"), so sizing columns by name width alone would
+// let condition text collide with its neighbor; this keeps both lines the
+// same total width, segment by segment, however long either one runs.
+// Widths are tracked visibly (utf8.RuneCountInString on the plain name),
+// not by string length, so the currently-viewed segment's lipgloss styling
+// (which adds invisible ANSI bytes) never throws off alignment.
+func renderEvolutionBreadcrumb(segments []evolutionSegment, branchStart int) string {
+	var line1, line2 strings.Builder
+
+	for i, seg := range segments {
+		if i > 0 {
+			sep := evolutionArrow
+			if i > branchStart {
+				sep = evolutionSlash
+			}
+			line1.WriteString(sep)
+			line2.WriteString(strings.Repeat(" ", utf8.RuneCountInString(sep)))
+		}
+
+		display := capitalize(seg.name)
+		nameWidth := utf8.RuneCountInString(display)
+		conditionWidth := utf8.RuneCountInString(seg.condition)
+		colWidth := max(nameWidth, conditionWidth)
+
+		name := display
+		if seg.current {
+			name = resultTitleStyle.Render(display)
+		}
+		line1.WriteString(name)
+		line1.WriteString(strings.Repeat(" ", colWidth-nameWidth))
+
+		line2.WriteString(seg.condition)
+		line2.WriteString(strings.Repeat(" ", colWidth-conditionWidth))
+	}
+
+	return line1.String() + "\n" + resultHintStyle.Render(line2.String())
 }
 
 func renderHeightWeight(stat pokemon.StatBlock) string {

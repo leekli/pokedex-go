@@ -15,16 +15,18 @@ import (
 const lookupTimeout = 10 * time.Second
 
 // lookupCmd resolves q against PokeAPI and reports the outcome as a
-// lookupResultMsg. The front/back sprite fetches and the Pokédex Entry fetch
-// are best-effort: a failure in any leaves that field blank (image.Image nil
-// / string "") rather than failing the overall lookup, since a missing
-// sprite or description is never worse than losing an otherwise-successful
-// stat lookup over it. The Pokédex Entry comes from a second, separate
-// GetSpecies call keyed by q.Value — for a DexNumber query this reuses the
-// species Lookup itself already fetched (and cached) under that same key,
-// so it costs no extra network round trip; for a Name query it's a genuine
-// second request, since Lookup skips species entirely in that case. See
-// docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
+// lookupResultMsg. The front/back sprite fetches, the Pokédex Entry fetch,
+// and the Evolution Chain fetch are all best-effort: a failure in any
+// leaves that field blank (image.Image nil / string "" / *pokemon.EvolutionChain
+// nil) rather than failing the overall lookup, since missing any one of
+// them is never worse than losing an otherwise-successful stat lookup over
+// it. The Pokédex Entry and Evolution Chain both come from a second,
+// separate GetSpecies call keyed by q.Value — for a DexNumber query this
+// reuses the species Lookup itself already fetched (and cached) under that
+// same key, so it costs no extra network round trip; for a Name query it's
+// a genuine second request, since Lookup skips species entirely in that
+// case. See docs/adr/0003-prefer-generation-1-pokedex-entry-version.md and
+// docs/adr/0006-scope-evolution-condition-text-to-common-cases.md.
 //
 // Type effectiveness is different: it's all-or-nothing, not best-effort -
 // see typeEffectivenessFor and docs/adr/0004-all-or-nothing-type-effectiveness.md.
@@ -55,8 +57,12 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 		}
 
 		var pokedexEntry string
+		var evolutionChain *pokemon.EvolutionChain
 		if species, speciesErr := client.GetSpecies(ctx, q.Value); speciesErr == nil {
 			pokedexEntry = pokeapi.SelectPokedexEntry(species.FlavorTextEntries)
+			if chain, chainErr := client.GetEvolutionChain(ctx, species.EvolutionChainID); chainErr == nil {
+				evolutionChain = &chain
+			}
 		}
 
 		typeEffectiveness := typeEffectivenessFor(ctx, client, p.Types)
@@ -66,6 +72,7 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 			spriteFront:       spriteFront,
 			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
+			evolutionChain:    evolutionChain,
 			typeEffectiveness: typeEffectiveness,
 		}
 	}

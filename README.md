@@ -40,6 +40,10 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
   Pokédex #, name, type badges (color-coded per type), height and weight in
   imperial units (matching the original English games), and base stats (HP,
   Attack, Defense, Sp. Atk, Sp. Def, Speed).
+- **Evolution Chain** — a breadcrumb of the Pokémon's family (e.g. Pichu →
+  Pikachu → Raichu), the currently-viewed one highlighted, with each
+  transition's condition shown beneath it (level, item, friendship, trade,
+  ...); a branch (Eevee's evolutions) shows every sibling.
 - **Pokédex Entry** — the classic Pokédex description text, preferring a
   Generation I game version (Red, Blue, then Yellow) to match the app's
   styling elsewhere.
@@ -202,14 +206,18 @@ input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. `lookupCmd`
 then makes further, per-Pokémon fetches for the Result Screen's other
 sections, each with its own failure contract:
 
-- **Sprite** (front and back, fetched independently) and **Pokédex Entry**
-  are best-effort — a failed fetch just leaves that image blank / shows the
-  section's fallback message ("No sprite available" /
-  "No Pokédex entry available.") rather than failing the whole lookup; the
-  Sprite falls back to "No sprite available" only if both front and back
-  fail. The Pokédex Entry prefers a Generation I game version where one
-  exists — see
+- **Sprite** (front and back, fetched independently), **Pokédex Entry**, and
+  **Evolution Chain** are all best-effort — a failed fetch just leaves that
+  image blank / shows the section's fallback message ("No sprite
+  available" / "No Pokédex entry available." / "Evolution data
+  unavailable") rather than failing the whole lookup; the Sprite falls back
+  to "No sprite available" only if both front and back fail. The Pokédex
+  Entry prefers a Generation I game version where one exists — see
   [`docs/adr/0003`](./docs/adr/0003-prefer-generation-1-pokedex-entry-version.md).
+  The Evolution Chain only describes common evolution conditions (level,
+  friendship, item, trade, ...), falling back to "special condition" for
+  PokeAPI's rarer ones — see
+  [`docs/adr/0006`](./docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
 - **Weaknesses & Resistances** is all-or-nothing instead: it needs a
   `GetTypeDamageRelations` call per one of the Pokémon's types (1 or 2),
   combined by `pokeapi.BuildTypeEffectiveness`, and if any one of those
@@ -232,8 +240,9 @@ up one of its Pokémon never fetches that type's data twice — see
 `Client` caches every successful PokeAPI response for its own lifetime
 (`internal/pokeapi/cache.go`) — the data PokeAPI serves doesn't meaningfully
 change within a single run of the app, so re-fetching it is pure waste.
-`GetPokemon`, `GetSpecies`, and `GetGenerationIndex` each cache their
-result keyed by whatever they were called with (name, dex number);
+`GetPokemon`, `GetSpecies`, `GetGenerationIndex`, and `GetEvolutionChain`
+each cache their result keyed by whatever they were called with (name, dex
+number, evolution-chain id);
 `FetchSprite` caches the already-*decoded* image by URL, skipping the PNG
 decode too on a repeat. `GetPokemonByType` and `GetTypeDamageRelations` go
 further and share one cached fetch per type name, since both read the same

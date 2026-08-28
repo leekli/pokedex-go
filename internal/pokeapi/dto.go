@@ -29,7 +29,9 @@ type pokemonDTO struct {
 // speciesDTO is the shape of a GET /pokemon-species/{id-or-name} response.
 // The default variety's Pokémon name resolves a National Dex Number lookup
 // into the base-form pokemon resource; flavor_text_entries is the source of
-// the Result Screen's Pokédex Entry (see SelectPokedexEntry).
+// the Result Screen's Pokédex Entry (see SelectPokedexEntry);
+// evolution_chain.url resolves to the Evolution Chain (see
+// GetEvolutionChain).
 type speciesDTO struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
@@ -48,6 +50,9 @@ type speciesDTO struct {
 			Name string `json:"name"`
 		} `json:"version"`
 	} `json:"flavor_text_entries"`
+	EvolutionChain struct {
+		URL string `json:"url"`
+	} `json:"evolution_chain"`
 }
 
 // Pokemon is the domain representation of a GET /pokemon/{name} response —
@@ -66,12 +71,16 @@ type Pokemon struct {
 // Species is the domain representation of a GET /pokemon-species/{...}
 // response: enough to resolve a National Dex Number, plus every raw
 // flavor text entry PokeAPI has for this species (see SelectPokedexEntry
-// for picking one to display).
+// for picking one to display) and the id of its Evolution Chain (see
+// GetEvolutionChain). EvolutionChainID is 0 if PokeAPI's evolution_chain
+// URL didn't decode to a numeric id - every real species has one, so this
+// is only ever hit by a malformed/unexpected response.
 type Species struct {
 	ID                 int
 	Name               string
 	DefaultPokemonName string
 	FlavorTextEntries  []FlavorTextEntry
+	EvolutionChainID   int
 }
 
 // FlavorTextEntry is one language/game-version-specific Pokédex description
@@ -122,6 +131,9 @@ func (d speciesDTO) toDomain() Species {
 			Language: e.Language.Name,
 			Version:  e.Version.Name,
 		})
+	}
+	if id, ok := resourceIDFromURL(d.EvolutionChain.URL); ok {
+		s.EvolutionChainID = id
 	}
 	return s
 }

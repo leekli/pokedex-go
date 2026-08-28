@@ -109,7 +109,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case showResultMsg:
 		a.history = append(a.history, a.screen)
-		a.result = newResultModel(msg.stat, msg.spriteFront, msg.spriteBack, msg.pokedexEntry, msg.typeEffectiveness)
+		a.result = newResultModel(msg.stat, msg.spriteFront, msg.spriteBack, msg.pokedexEntry, msg.evolutionChain, msg.typeEffectiveness)
 		a.screen = screenResult
 		return a, nil
 	}

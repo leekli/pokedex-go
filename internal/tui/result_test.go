@@ -48,7 +48,7 @@ func testStatBlock() pokemon.StatBlock {
 func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
-	m := newResultModel(testStatBlock(), img, nil, "", nil)
+	m := newResultModel(testStatBlock(), img, nil, "", nil, nil)
 	view := m.View()
 
 	for _, want := range []string{
@@ -77,7 +77,7 @@ func TestResultModel_View_ShowsStatBlock(t *testing.T) {
 // fallback (sprite == nil) still renders inside the new card, with the rest
 // of the Stat Block unaffected.
 func TestResultModel_View_NoSprite(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 	view := m.View()
 
 	if !strings.Contains(view, "No sprite available") {
@@ -97,7 +97,7 @@ func TestResultModel_View_FrontAndBackSprites(t *testing.T) {
 	back := image.NewNRGBA(image.Rect(0, 0, 2, 2))
 	back.Set(0, 0, color.NRGBA{R: 0, G: 100, B: 255, A: 255})
 
-	m := newResultModel(testStatBlock(), front, back, "", nil)
+	m := newResultModel(testStatBlock(), front, back, "", nil, nil)
 	view := m.View()
 
 	frontOnly := renderSprites(front, nil)
@@ -159,7 +159,7 @@ func TestRenderSprites_BothSpritesUseSpriteHalfWidth(t *testing.T) {
 // TestResultModel_View_ShowsPokedexEntry proves a non-empty pokedexEntry
 // renders on the card - see docs/adr/0003-prefer-generation-1-pokedex-entry-version.md.
 func TestResultModel_View_ShowsPokedexEntry(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "A mysterious, flame-spitting Pokémon.", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "A mysterious, flame-spitting Pokémon.", nil, nil)
 	view := m.View()
 
 	if !strings.Contains(view, "A mysterious, flame-spitting Pokémon.") {
@@ -174,7 +174,7 @@ func TestResultModel_View_ShowsPokedexEntry(t *testing.T) {
 // (no English entry existed, or the fetch failed) shows a fallback message
 // rather than an empty gap, the same way a nil sprite does.
 func TestResultModel_View_NoPokedexEntryFallback(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 	view := m.View()
 
 	if !strings.Contains(view, "No Pokédex entry available.") {
@@ -209,7 +209,7 @@ func charizardTypeEffectiveness() *pokemon.TypeEffectiveness {
 // Resistances section renders weaknesses, resistances, and immunities with
 // their multipliers - see docs/adr/0004-all-or-nothing-type-effectiveness.md.
 func TestResultModel_View_ShowsTypeEffectiveness(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", charizardTypeEffectiveness())
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, charizardTypeEffectiveness())
 	view := m.View()
 
 	for _, want := range []string{
@@ -221,7 +221,7 @@ func TestResultModel_View_ShowsTypeEffectiveness(t *testing.T) {
 			t.Errorf("resultModel.View() missing %q\ngot:\n%s", want, view)
 		}
 	}
-	if strings.Contains(view, "unavailable") {
+	if strings.Contains(view, "Weaknesses & resistances unavailable") {
 		t.Errorf("resultModel.View() with type effectiveness should not show the fallback message\ngot:\n%s", view)
 	}
 }
@@ -230,7 +230,7 @@ func TestResultModel_View_ShowsTypeEffectiveness(t *testing.T) {
 // typeEffectiveness (a damage relations fetch failed) shows a fallback
 // message rather than an empty gap or, worse, a partial/wrong chart.
 func TestResultModel_View_TypeEffectivenessUnavailableFallback(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 	view := m.View()
 
 	if !strings.Contains(view, "Weaknesses & resistances unavailable.") {
@@ -243,7 +243,7 @@ func TestResultModel_View_TypeEffectivenessUnavailableFallback(t *testing.T) {
 // blank line, so it reads as a confirmed fact rather than missing data.
 func TestResultModel_View_TypeEffectivenessNoneShowsExplicitly(t *testing.T) {
 	te := &pokemon.TypeEffectiveness{}
-	m := newResultModel(testStatBlock(), nil, nil, "", te)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, te)
 	view := m.View()
 
 	if !strings.Contains(view, "Weak to    None") {
@@ -306,7 +306,7 @@ func TestRenderStatBar(t *testing.T) {
 // TestResultModel_Update_NonKeyMsgIgnored proves a message that isn't a
 // key press (e.g. a stray tick from another screen) is simply ignored.
 func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 
 	got, cmd := m.Update(struct{}{})
 
@@ -323,7 +323,7 @@ func TestResultModel_Update_NonKeyMsgIgnored(t *testing.T) {
 // (see docs/adr/0001-navigation-history-for-back-navigation.md and
 // result_navigation_test.go for the full-flow e2e equivalent).
 func TestResultModel_Update_EscGoesBack(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
@@ -339,7 +339,7 @@ func TestResultModel_Update_EscGoesBack(t *testing.T) {
 // meaning - "look up another Pokémon" - regardless of how this screen was
 // reached (see docs/adr/0001).
 func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
@@ -352,7 +352,7 @@ func TestResultModel_Update_EnterSearchesAgain(t *testing.T) {
 }
 
 func TestResultModel_Update_QQuits(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 
@@ -367,7 +367,7 @@ func TestResultModel_Update_QQuits(t *testing.T) {
 // TestResultModel_Update_UnhandledKeyNoOp proves a key with no binding on
 // this screen (there's no free-text input here) is simply ignored.
 func TestResultModel_Update_UnhandledKeyNoOp(t *testing.T) {
-	m := newResultModel(testStatBlock(), nil, nil, "", nil)
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
 
 	got, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
 
@@ -376,5 +376,244 @@ func TestResultModel_Update_UnhandledKeyNoOp(t *testing.T) {
 	}
 	if got.View() != m.View() {
 		t.Errorf(`Update("x") changed the model, want it unchanged`)
+	}
+}
+
+// pichuPikachuRaichuChain is Pikachu's real evolution family, used
+// throughout the Evolution Chain tests below as a real, checkable linear
+// example - the same family used in internal/pokeapi's own tests.
+func pichuPikachuRaichuChain() pokemon.EvolutionChain {
+	return pokemon.EvolutionChain{
+		Root: pokemon.EvolutionStage{
+			DexNumber: 172,
+			Name:      "pichu",
+			EvolvesTo: []pokemon.EvolutionStage{
+				{
+					DexNumber: 25,
+					Name:      "pikachu",
+					Condition: "high friendship",
+					EvolvesTo: []pokemon.EvolutionStage{
+						{DexNumber: 26, Name: "raichu", Condition: "use Thunder Stone"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestRenderEvolutionChain_NilChainShowsFallback(t *testing.T) {
+	got := renderEvolutionChain(25, nil)
+	if !strings.Contains(got, "Evolution data unavailable") {
+		t.Errorf("renderEvolutionChain(_, nil) = %q, want the unavailable fallback", got)
+	}
+}
+
+// TestRenderEvolutionChain_DoesNotEvolve proves a Pokémon with no
+// evolution relations at all (e.g. Tauros) shows "Does not evolve" - real
+// information, not the "data unavailable" failure fallback.
+func TestRenderEvolutionChain_DoesNotEvolve(t *testing.T) {
+	chain := pokemon.EvolutionChain{Root: pokemon.EvolutionStage{DexNumber: 128, Name: "tauros"}}
+
+	got := renderEvolutionChain(128, &chain)
+
+	if got != "Does not evolve" {
+		t.Errorf("renderEvolutionChain(single-stage, no evolutions) = %q, want %q", got, "Does not evolve")
+	}
+}
+
+// TestRenderEvolutionChain_MidChainShowsAncestorsAndDescendants proves
+// viewing a middle stage (Pikachu) shows the whole family: its ancestor
+// (Pichu), itself, and what it evolves into (Raichu), with both
+// transitions' conditions.
+func TestRenderEvolutionChain_MidChainShowsAncestorsAndDescendants(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	got := renderEvolutionChain(25, &chain)
+
+	for _, want := range []string{"Pichu", "Pikachu", "Raichu", "high friendship", "use Thunder Stone"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("renderEvolutionChain(mid-chain) missing %q\ngot:\n%s", want, got)
+		}
+	}
+}
+
+// TestRenderEvolutionChain_RootStageShowsOnlyItsOwnChildren proves viewing
+// the chain's root (Pichu) shows what it evolves into (Pikachu) but not
+// further descendants (Raichu, two stages beyond the one being viewed).
+func TestRenderEvolutionChain_RootStageShowsOnlyItsOwnChildren(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	got := renderEvolutionChain(172, &chain)
+
+	if !strings.Contains(got, "Pichu") || !strings.Contains(got, "Pikachu") {
+		t.Errorf("renderEvolutionChain(root) = %q, want it to show its own evolution (Pikachu)", got)
+	}
+	if strings.Contains(got, "Raichu") {
+		t.Errorf("renderEvolutionChain(root) = %q, should not show Raichu (two stages beyond the one being viewed)", got)
+	}
+}
+
+// TestRenderEvolutionChain_LeafStageShowsFullAncestry proves viewing the
+// end of the chain (Raichu) still shows the full path that led there.
+func TestRenderEvolutionChain_LeafStageShowsFullAncestry(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	got := renderEvolutionChain(26, &chain)
+
+	for _, want := range []string{"Pichu", "Pikachu", "Raichu"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("renderEvolutionChain(leaf) missing %q\ngot:\n%s", want, got)
+		}
+	}
+}
+
+// TestRenderEvolutionChain_UnknownDexNumberShowsFallback is defensive: the
+// Result Screen's own Pokémon should always be somewhere in its own
+// Evolution Chain, but a mismatch must degrade to the fallback rather than
+// panicking on an empty path.
+func TestRenderEvolutionChain_UnknownDexNumberShowsFallback(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	got := renderEvolutionChain(999, &chain)
+
+	if !strings.Contains(got, "Evolution data unavailable") {
+		t.Errorf("renderEvolutionChain(unknown dex number) = %q, want the unavailable fallback", got)
+	}
+}
+
+// TestRenderEvolutionChain_Branching proves a species with multiple
+// evolutions (like Eevee) shows every sibling and its own condition, not
+// just the first one.
+func TestRenderEvolutionChain_Branching(t *testing.T) {
+	chain := pokemon.EvolutionChain{
+		Root: pokemon.EvolutionStage{
+			DexNumber: 133,
+			Name:      "eevee",
+			EvolvesTo: []pokemon.EvolutionStage{
+				{DexNumber: 134, Name: "vaporeon", Condition: "use Water Stone"},
+				{DexNumber: 135, Name: "jolteon", Condition: "use Thunder Stone"},
+			},
+		},
+	}
+
+	got := renderEvolutionChain(133, &chain)
+
+	for _, want := range []string{"Eevee", "Vaporeon", "Jolteon", "use Water Stone", "use Thunder Stone"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("renderEvolutionChain(branching) missing %q\ngot:\n%s", want, got)
+		}
+	}
+}
+
+// TestRenderEvolutionBreadcrumb_ConditionsDoNotCollide is a regression test:
+// an earlier version of this alignment logic sized each column by name
+// width alone, so a condition longer than its name ("high friendship" vs
+// "Pikachu") ran straight into the next segment's condition with no
+// separating space at all. Column width must be driven by whichever of the
+// name or condition is wider.
+func TestRenderEvolutionBreadcrumb_ConditionsDoNotCollide(t *testing.T) {
+	segments := []evolutionSegment{
+		{name: "pichu"},
+		{name: "pikachu", current: true, condition: "high friendship"},
+		{name: "raichu", condition: "use Thunder Stone"},
+	}
+
+	got := renderEvolutionBreadcrumb(segments, 2)
+	lines := strings.Split(got, "\n")
+
+	if len(lines) != 2 {
+		t.Fatalf("renderEvolutionBreadcrumb produced %d lines, want 2 (names, then conditions)", len(lines))
+	}
+	if strings.Contains(lines[1], "friendshipuse") {
+		t.Errorf("condition line = %q, conditions ran together with no separating space", lines[1])
+	}
+	if !strings.Contains(lines[1], "high friendship") || !strings.Contains(lines[1], "use Thunder Stone") {
+		t.Errorf("condition line = %q, missing a condition", lines[1])
+	}
+}
+
+// TestRenderEvolutionBreadcrumb_FirstChildUsesArrowNotSlash is a
+// regression test: the transition from the currently-viewed stage into
+// its *first* evolution must still be an arrow (it's the next stage in
+// the lineage); only that first child's siblings (Eevee's second, third,
+// ... evolution) are slash-separated from each other.
+func TestRenderEvolutionBreadcrumb_FirstChildUsesArrowNotSlash(t *testing.T) {
+	segments := []evolutionSegment{
+		{name: "eevee", current: true},
+		{name: "vaporeon", condition: "use Water Stone"},
+		{name: "jolteon", condition: "use Thunder Stone"},
+	}
+
+	got := renderEvolutionBreadcrumb(segments, 1)
+	lines := strings.Split(got, "\n")
+	nameLine := lines[0]
+
+	// Segment columns are padded to fit whichever of the name or its
+	// condition is wider (see renderEvolutionBreadcrumb's doc comment), so
+	// the separator isn't necessarily hard against the name it follows -
+	// find each name's own position and check what separator character
+	// comes immediately after it, rather than asserting exact adjacency.
+	eevee := strings.Index(nameLine, "Eevee")
+	vaporeon := strings.Index(nameLine, "Vaporeon")
+	jolteon := strings.Index(nameLine, "Jolteon")
+	if eevee < 0 || vaporeon < 0 || jolteon < 0 {
+		t.Fatalf("name line = %q, missing a stage name", nameLine)
+	}
+
+	between := nameLine[eevee+len("Eevee") : vaporeon]
+	if strings.Contains(between, evolutionSlash) || !strings.Contains(between, "→") {
+		t.Errorf("separator between Eevee and Vaporeon = %q, want an arrow (it's the next stage in the lineage), not a slash", between)
+	}
+
+	between = nameLine[vaporeon+len("Vaporeon") : jolteon]
+	if strings.Contains(between, "→") || !strings.Contains(between, "/") {
+		t.Errorf("separator between Vaporeon and Jolteon = %q, want a slash (siblings), not an arrow", between)
+	}
+}
+
+// TestResultModel_View_ShowsEvolutionChain proves the Evolution Chain
+// renders inside the full card, keyed off the Pokémon actually being
+// viewed (Charizard, #6 - matching testStatBlock()).
+func TestResultModel_View_ShowsEvolutionChain(t *testing.T) {
+	chain := pokemon.EvolutionChain{
+		Root: pokemon.EvolutionStage{
+			DexNumber: 4,
+			Name:      "charmander",
+			EvolvesTo: []pokemon.EvolutionStage{
+				{
+					DexNumber: 5,
+					Name:      "charmeleon",
+					Condition: "Lv. 16",
+					EvolvesTo: []pokemon.EvolutionStage{
+						{DexNumber: 6, Name: "charizard", Condition: "Lv. 36"},
+					},
+				},
+			},
+		},
+	}
+	m := newResultModel(testStatBlock(), nil, nil, "", &chain, nil)
+
+	view := m.View()
+
+	for _, want := range []string{"Charmander", "Charmeleon", "Charizard", "Lv. 16", "Lv. 36"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("resultModel.View() missing %q from the Evolution Chain\ngot:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "Evolution data unavailable") {
+		t.Errorf("resultModel.View() with an evolution chain should not show the fallback message\ngot:\n%s", view)
+	}
+}
+
+// TestResultModel_View_NoEvolutionChainFallback proves a nil evolutionChain
+// (the fetch failed, or PokeAPI had none) shows a fallback message rather
+// than an empty gap, the same way a nil sprite does.
+func TestResultModel_View_NoEvolutionChainFallback(t *testing.T) {
+	m := newResultModel(testStatBlock(), nil, nil, "", nil, nil)
+
+	view := m.View()
+
+	if !strings.Contains(view, "Evolution data unavailable") {
+		t.Errorf("resultModel.View() with a nil evolutionChain missing fallback message\ngot:\n%s", view)
 	}
 }

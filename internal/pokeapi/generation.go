@@ -69,7 +69,7 @@ func (c *Client) GetGenerationIndex(ctx context.Context) map[int]string {
 			continue
 		}
 		for _, species := range r.dto.PokemonSpecies {
-			id, ok := pokemonIDFromURL(species.URL)
+			id, ok := resourceIDFromURL(species.URL)
 			if !ok {
 				continue
 			}

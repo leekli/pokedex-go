@@ -54,6 +54,18 @@ const pikachuSpeciesJSON = `{
 	]
 }`
 
+// pikachuSpeciesWithEvolutionChainJSON adds an evolution_chain URL on top
+// of pikachuSpeciesJSON's shape, to prove GetSpecies decodes it into
+// Species.EvolutionChainID (see GetEvolutionChain).
+const pikachuSpeciesWithEvolutionChainJSON = `{
+	"id": 25,
+	"name": "pikachu",
+	"varieties": [
+		{"is_default": true, "pokemon": {"name": "pikachu"}}
+	],
+	"evolution_chain": {"url": "https://pokeapi.co/api/v2/evolution-chain/10/"}
+}`
+
 // pikachuSpeciesWithFlavorTextJSON adds flavor_text_entries on top of
 // pikachuSpeciesJSON's shape, including the literal \n line-break artifact
 // PokeAPI passes through verbatim from the original games' text boxes (see
@@ -278,6 +290,22 @@ func TestGetSpecies_DecodesFlavorTextEntries(t *testing.T) {
 	}
 	if got.FlavorTextEntries[1].Language != "fr" {
 		t.Errorf("entry 1.Language = %q, want fr (non-English entries aren't filtered at this layer)", got.FlavorTextEntries[1].Language)
+	}
+}
+
+// TestGetSpecies_DecodesEvolutionChainID proves evolution_chain.url decodes
+// into Species.EvolutionChainID (see GetEvolutionChain).
+func TestGetSpecies_DecodesEvolutionChainID(t *testing.T) {
+	_, client := newFixtureServer(t, map[string]fixtureResponse{
+		"/pokemon-species/25": {status: http.StatusOK, body: pikachuSpeciesWithEvolutionChainJSON},
+	})
+
+	got, err := client.GetSpecies(context.Background(), "25")
+	if err != nil {
+		t.Fatalf("GetSpecies returned error: %v", err)
+	}
+	if got.EvolutionChainID != 10 {
+		t.Errorf("GetSpecies.EvolutionChainID = %d, want 10 (from the evolution_chain URL)", got.EvolutionChainID)
 	}
 }
 
