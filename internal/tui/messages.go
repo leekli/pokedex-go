@@ -52,7 +52,7 @@ func searchAgain() tea.Cmd {
 // pokeapi package (*pokeapi.LookupError or *pokeapi.ServiceError).
 type lookupResultMsg struct {
 	stat              pokemon.StatBlock
-	sprite            image.Image
+	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
@@ -64,17 +64,17 @@ type lookupResultMsg struct {
 // transition that carries a payload.
 type showResultMsg struct {
 	stat              pokemon.StatBlock
-	sprite            image.Image
+	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func showResult(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
+func showResult(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) tea.Cmd {
 	return func() tea.Msg {
 		return showResultMsg{
 			stat:              stat,
-			sprite:            sprite,
+			spriteFront:       spriteFront,
 			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
 			typeEffectiveness: typeEffectiveness,

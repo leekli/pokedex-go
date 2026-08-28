@@ -40,10 +40,10 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 
 		stat := pokeapi.BuildStatBlock(p)
 
-		var sprite image.Image
-		if p.SpriteURL != "" {
-			if img, spriteErr := client.FetchSprite(ctx, p.SpriteURL); spriteErr == nil {
-				sprite = img
+		var spriteFront image.Image
+		if p.SpriteFrontURL != "" {
+			if img, spriteErr := client.FetchSprite(ctx, p.SpriteFrontURL); spriteErr == nil {
+				spriteFront = img
 			}
 		}
 
@@ -63,7 +63,7 @@ func lookupCmd(client *pokeapi.Client, q pokemon.Query) tea.Cmd {
 
 		return lookupResultMsg{
 			stat:              stat,
-			sprite:            sprite,
+			spriteFront:       spriteFront,
 			spriteBack:        spriteBack,
 			pokedexEntry:      pokedexEntry,
 			typeEffectiveness: typeEffectiveness,

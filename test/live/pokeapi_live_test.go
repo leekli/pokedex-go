@@ -39,7 +39,7 @@ func TestLive_GetPokemonPikachu(t *testing.T) {
 	if !contains(got.Types, "electric") {
 		t.Errorf("pikachu types = %v, want to contain %q", got.Types, "electric")
 	}
-	if got.SpriteURL == "" {
+	if got.SpriteFrontURL == "" {
 		t.Error("pikachu has no front_default sprite URL (has PokeAPI's sprites schema changed?)")
 	}
 }

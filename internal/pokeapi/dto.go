@@ -53,14 +53,14 @@ type speciesDTO struct {
 // Pokemon is the domain representation of a GET /pokemon/{name} response —
 // PokeAPI's raw units and unordered stat list normalized into a stable shape.
 type Pokemon struct {
-	ID            int
-	Name          string
-	HeightDm      int
-	WeightHg      int
-	Types         []string
-	Stats         map[string]int // keyed by PokeAPI stat name, e.g. "special-attack"
-	SpriteURL     string         // empty if PokeAPI returned no front_default sprite
-	SpriteBackURL string         // empty if PokeAPI returned no back_default sprite
+	ID             int
+	Name           string
+	HeightDm       int
+	WeightHg       int
+	Types          []string
+	Stats          map[string]int // keyed by PokeAPI stat name, e.g. "special-attack"
+	SpriteFrontURL string         // empty if PokeAPI returned no front_default sprite
+	SpriteBackURL  string         // empty if PokeAPI returned no back_default sprite
 }
 
 // Species is the domain representation of a GET /pokemon-species/{...}
@@ -99,7 +99,7 @@ func (d pokemonDTO) toDomain() Pokemon {
 		p.Stats[s.Stat.Name] = s.BaseStat
 	}
 	if d.Sprites.FrontDefault != nil {
-		p.SpriteURL = *d.Sprites.FrontDefault
+		p.SpriteFrontURL = *d.Sprites.FrontDefault
 	}
 	if d.Sprites.BackDefault != nil {
 		p.SpriteBackURL = *d.Sprites.BackDefault

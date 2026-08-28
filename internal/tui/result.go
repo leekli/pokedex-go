@@ -86,16 +86,16 @@ var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychi
 // out as a table of colored bars.
 type resultModel struct {
 	stat              pokemon.StatBlock
-	sprite            image.Image
+	spriteFront       image.Image
 	spriteBack        image.Image
 	pokedexEntry      string
 	typeEffectiveness *pokemon.TypeEffectiveness
 }
 
-func newResultModel(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
+func newResultModel(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) resultModel {
 	return resultModel{
 		stat:              stat,
-		sprite:            sprite,
+		spriteFront:       spriteFront,
 		spriteBack:        spriteBack,
 		pokedexEntry:      pokedexEntry,
 		typeEffectiveness: typeEffectiveness,
@@ -129,7 +129,7 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.sprite, m.spriteBack, m.pokedexEntry, m.typeEffectiveness)))
+	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.spriteFront, m.spriteBack, m.pokedexEntry, m.typeEffectiveness)))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
@@ -145,14 +145,14 @@ func (m resultModel) View() string {
 // small dot flourish, and the base stats table - everything CONTEXT.md's
 // Stat Block already shows, just restyled, plus the two sections alongside
 // it.
-func renderResultCard(stat pokemon.StatBlock, sprite, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
+func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, typeEffectiveness *pokemon.TypeEffectiveness) string {
 	var b strings.Builder
 
 	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
 	b.WriteString(resultCenterStyle.Render(resultTitleStyle.Render(title)))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderSprites(sprite, spriteBack)))
+	b.WriteString(resultCenterStyle.Render(renderSprites(spriteFront, spriteBack)))
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderTypeBadges(stat.Types)))
@@ -188,17 +188,17 @@ func renderResultCard(stat pokemon.StatBlock, sprite, spriteBack image.Image, po
 // docs/adr/0005-keep-both-sprites-near-full-resolution.md on why that
 // naive split destroys small sprite detail. A lone sprite gets the full
 // spriteMaxWidth, matching the Result Screen's pre-back-sprite sizing.
-func renderSprites(sprite, spriteBack image.Image) string {
-	if sprite == nil && spriteBack == nil {
+func renderSprites(spriteFront, spriteBack image.Image) string {
+	if spriteFront == nil && spriteBack == nil {
 		return noSpriteStyle.Render("No sprite available")
 	}
-	if sprite != nil && spriteBack != nil {
-		front := spriteart.Render(sprite, spriteart.Options{MaxWidth: spriteHalfWidth})
+	if spriteFront != nil && spriteBack != nil {
+		front := spriteart.Render(spriteFront, spriteart.Options{MaxWidth: spriteHalfWidth})
 		back := spriteart.Render(spriteBack, spriteart.Options{MaxWidth: spriteHalfWidth})
 		return lipgloss.JoinHorizontal(lipgloss.Top, front, strings.Repeat(" ", spriteGap), back)
 	}
 
-	img := sprite
+	img := spriteFront
 	if img == nil {
 		img = spriteBack
 	}

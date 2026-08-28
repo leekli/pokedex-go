@@ -36,28 +36,28 @@ const lookupCmdPikachuJSONTemplate = `{
 	"sprites": {"front_default": %s}
 }`
 
-// newLookupCmdServer builds a fixture PokeAPI server serving pikachu, whose
-// front_default sprite either points back at the server's own
-// /sprites/pikachu.png route (includeSprite true) or is absent entirely
-// (includeSprite false). The sprite route itself responds with
-// spriteStatus, so callers can exercise a working sprite fetch, a failing
-// one, or no sprite URL at all.
-func newLookupCmdServer(t *testing.T, includeSprite bool, spriteStatus int) *pokeapi.Client {
+// newLookupCmdFrontSpriteServer builds a fixture PokeAPI server serving
+// pikachu, whose front_default sprite either points back at the server's
+// own /sprites/pikachu.png route (includeFrontSprite true) or is absent
+// entirely (includeFrontSprite false). The sprite route itself responds
+// with frontSpriteStatus, so callers can exercise a working front sprite
+// fetch, a failing one, or no front sprite URL at all.
+func newLookupCmdFrontSpriteServer(t *testing.T, includeFrontSprite bool, frontSpriteStatus int) *pokeapi.Client {
 	t.Helper()
 	var baseURL string
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
-		spriteJSON := "null"
-		if includeSprite {
-			spriteJSON = fmt.Sprintf(`"%s/sprites/pikachu.png"`, baseURL)
+		frontSpriteJSON := "null"
+		if includeFrontSprite {
+			frontSpriteJSON = fmt.Sprintf(`"%s/sprites/pikachu.png"`, baseURL)
 		}
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, spriteJSON)
+		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, frontSpriteJSON)
 	})
 	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(spriteStatus)
-		if spriteStatus == http.StatusOK {
+		w.WriteHeader(frontSpriteStatus)
+		if frontSpriteStatus == http.StatusOK {
 			w.Write(commandsTestFixturePNG(t))
 		}
 	})
@@ -81,9 +81,10 @@ func runLookupCmd(t *testing.T, client *pokeapi.Client) lookupResultMsg {
 }
 
 // TestLookupCmd_Success proves the straightforward path: a successful
-// PokeAPI lookup with a working sprite produces a fully populated message.
+// PokeAPI lookup with a working front sprite produces a fully populated
+// message.
 func TestLookupCmd_Success(t *testing.T) {
-	client := newLookupCmdServer(t, true, http.StatusOK)
+	client := newLookupCmdFrontSpriteServer(t, true, http.StatusOK)
 
 	msg := runLookupCmd(t, client)
 
@@ -93,43 +94,43 @@ func TestLookupCmd_Success(t *testing.T) {
 	if msg.stat.Name != "pikachu" || msg.stat.DexNumber != 25 {
 		t.Errorf("lookupResultMsg.stat = %+v, want pikachu #25", msg.stat)
 	}
-	if msg.sprite == nil {
-		t.Error("lookupResultMsg.sprite is nil, want a decoded image on a successful sprite fetch")
+	if msg.spriteFront == nil {
+		t.Error("lookupResultMsg.spriteFront is nil, want a decoded image on a successful front sprite fetch")
 	}
 }
 
-// TestLookupCmd_SpriteFetchFailureStillSucceeds proves the documented
-// behavior in commands.go: a failed sprite fetch does not fail the overall
-// lookup, it just leaves lookupResultMsg.sprite nil so the Result Screen
-// falls back to its "no sprite" message.
-func TestLookupCmd_SpriteFetchFailureStillSucceeds(t *testing.T) {
-	client := newLookupCmdServer(t, true, http.StatusInternalServerError)
+// TestLookupCmd_FrontSpriteFetchFailureStillSucceeds proves the documented
+// behavior in commands.go: a failed front sprite fetch does not fail the
+// overall lookup, it just leaves lookupResultMsg.spriteFront nil so the
+// Result Screen falls back to its "no sprite" message.
+func TestLookupCmd_FrontSpriteFetchFailureStillSucceeds(t *testing.T) {
+	client := newLookupCmdFrontSpriteServer(t, true, http.StatusInternalServerError)
 
 	msg := runLookupCmd(t, client)
 
 	if msg.err != nil {
-		t.Fatalf("lookupResultMsg.err = %v, want nil (sprite failure must not fail the lookup)", msg.err)
+		t.Fatalf("lookupResultMsg.err = %v, want nil (front sprite failure must not fail the lookup)", msg.err)
 	}
-	if msg.sprite != nil {
-		t.Error("lookupResultMsg.sprite is non-nil, want nil after a failed sprite fetch")
+	if msg.spriteFront != nil {
+		t.Error("lookupResultMsg.spriteFront is non-nil, want nil after a failed front sprite fetch")
 	}
 	if msg.stat.Name != "pikachu" {
 		t.Errorf("lookupResultMsg.stat.Name = %q, want pikachu", msg.stat.Name)
 	}
 }
 
-// TestLookupCmd_NoSpriteURL proves a Pokémon with no front_default sprite at
-// all skips the sprite fetch entirely and still succeeds.
-func TestLookupCmd_NoSpriteURL(t *testing.T) {
-	client := newLookupCmdServer(t, false, http.StatusOK)
+// TestLookupCmd_NoFrontSpriteURL proves a Pokémon with no front_default
+// sprite at all skips the front sprite fetch entirely and still succeeds.
+func TestLookupCmd_NoFrontSpriteURL(t *testing.T) {
+	client := newLookupCmdFrontSpriteServer(t, false, http.StatusOK)
 
 	msg := runLookupCmd(t, client)
 
 	if msg.err != nil {
 		t.Fatalf("lookupResultMsg.err = %v, want nil", msg.err)
 	}
-	if msg.sprite != nil {
-		t.Error("lookupResultMsg.sprite is non-nil, want nil when PokeAPI returned no sprite URL")
+	if msg.spriteFront != nil {
+		t.Error("lookupResultMsg.spriteFront is non-nil, want nil when PokeAPI returned no front sprite URL")
 	}
 }
 
@@ -148,9 +149,9 @@ const lookupCmdPikachuFrontBackJSONTemplate = `{
 
 // newLookupCmdBackSpriteServer builds a fixture PokeAPI server serving
 // pikachu with a back_default sprite (and no front_default), whose route
-// responds with spriteStatus - the back-sprite equivalent of
-// newLookupCmdServer.
-func newLookupCmdBackSpriteServer(t *testing.T, spriteStatus int) *pokeapi.Client {
+// responds with backSpriteStatus - the back-sprite equivalent of
+// newLookupCmdFrontSpriteServer.
+func newLookupCmdBackSpriteServer(t *testing.T, backSpriteStatus int) *pokeapi.Client {
 	t.Helper()
 	var baseURL string
 
@@ -160,8 +161,8 @@ func newLookupCmdBackSpriteServer(t *testing.T, spriteStatus int) *pokeapi.Clien
 		fmt.Fprintf(w, lookupCmdPikachuFrontBackJSONTemplate, fmt.Sprintf(`"%s/sprites/pikachu-back.png"`, baseURL))
 	})
 	mux.HandleFunc("/sprites/pikachu-back.png", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(spriteStatus)
-		if spriteStatus == http.StatusOK {
+		w.WriteHeader(backSpriteStatus)
+		if backSpriteStatus == http.StatusOK {
 			w.Write(commandsTestFixturePNG(t))
 		}
 	})
@@ -186,14 +187,14 @@ func TestLookupCmd_BackSprite_Success(t *testing.T) {
 	if msg.spriteBack == nil {
 		t.Error("lookupResultMsg.spriteBack is nil, want a decoded image on a successful back sprite fetch")
 	}
-	if msg.sprite != nil {
-		t.Error("lookupResultMsg.sprite is non-nil, want nil (fixture has no front_default)")
+	if msg.spriteFront != nil {
+		t.Error("lookupResultMsg.spriteFront is non-nil, want nil (fixture has no front_default)")
 	}
 }
 
 // TestLookupCmd_BackSpriteFetchFailureStillSucceeds proves a failed
 // back_default fetch doesn't fail the overall lookup, leaving spriteBack nil
-// - the back-sprite equivalent of TestLookupCmd_SpriteFetchFailureStillSucceeds.
+// - the back-sprite equivalent of TestLookupCmd_FrontSpriteFetchFailureStillSucceeds.
 func TestLookupCmd_BackSpriteFetchFailureStillSucceeds(t *testing.T) {
 	client := newLookupCmdBackSpriteServer(t, http.StatusInternalServerError)
 
@@ -209,9 +210,9 @@ func TestLookupCmd_BackSpriteFetchFailureStillSucceeds(t *testing.T) {
 
 // TestLookupCmd_NoBackSpriteURL proves a Pokémon with no back_default sprite
 // at all skips the back sprite fetch entirely and still succeeds - the
-// back-sprite equivalent of TestLookupCmd_NoSpriteURL.
+// back-sprite equivalent of TestLookupCmd_NoFrontSpriteURL.
 func TestLookupCmd_NoBackSpriteURL(t *testing.T) {
-	client := newLookupCmdServer(t, false, http.StatusOK)
+	client := newLookupCmdFrontSpriteServer(t, false, http.StatusOK)
 
 	msg := runLookupCmd(t, client)
 
@@ -262,7 +263,7 @@ func TestLookupCmd_IncludesPokedexEntry(t *testing.T) {
 
 // TestLookupCmd_PokedexEntryFetchFailureStillSucceeds proves a failed
 // species fetch doesn't fail the overall lookup, the same way a failed
-// sprite fetch doesn't (see TestLookupCmd_SpriteFetchFailureStillSucceeds).
+// sprite fetch doesn't (see TestLookupCmd_FrontSpriteFetchFailureStillSucceeds).
 func TestLookupCmd_PokedexEntryFetchFailureStillSucceeds(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {

@@ -9,8 +9,9 @@ import (
 )
 
 // FetchSprite downloads and decodes the image at url (as returned in a
-// Pokemon's SpriteURL). PokeAPI serves sprite images from a different host
-// than the API itself, so this issues its own request rather than going
+// Pokemon's SpriteFrontURL or SpriteBackURL - this method doesn't care
+// which). PokeAPI serves sprite images from a different host than the API
+// itself, so this issues its own request rather than going
 // through Client.get, but failures are still classified as ServiceError for
 // consistency — a missing or broken sprite is never the user's mistake. The
 // decoded image is cached by url for the rest of the Client's lifetime (see

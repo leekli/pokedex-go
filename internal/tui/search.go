@@ -195,7 +195,7 @@ func (m searchModel) Update(msg tea.Msg) (searchModel, tea.Cmd) {
 			m.errMsg = errorMessageFor(msg.err, m.input.Value())
 			return m, nil
 		}
-		return m, showResult(msg.stat, msg.sprite, msg.spriteBack, msg.pokedexEntry, msg.typeEffectiveness)
+		return m, showResult(msg.stat, msg.spriteFront, msg.spriteBack, msg.pokedexEntry, msg.typeEffectiveness)
 	}
 	return m, nil
 }
