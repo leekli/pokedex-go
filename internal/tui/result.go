@@ -13,19 +13,27 @@ import (
 	"github.com/leekli/pokedex-go/internal/spriteart"
 )
 
-// spriteMaxWidth caps the combined rendered width (in terminal columns) of
-// the front and back sprites shown side by side; spriteGap is the blank
-// column gap between them. When only one of the two sprites is available,
-// it alone gets the full spriteMaxWidth - see renderSprites.
+// spriteMaxWidth caps a single sprite's rendered width (in terminal
+// columns) when only one of front/back is available - see renderSprites.
+// spriteHalfWidth caps each one's width when both are shown side by side;
+// it's deliberately close to spriteMaxWidth (rather than half of it) so
+// splitting the sprite row in two doesn't double spriteart.Render's
+// downsample scale and destroy small but diagnostic sprite detail (a
+// Pikachu's cheek, an eye) - see docs/adr/0005-keep-both-sprites-near-full-resolution.md.
+// spriteGap is the blank column gap between the two.
 const (
-	spriteMaxWidth = 40
-	spriteGap      = 2
+	spriteMaxWidth  = 40
+	spriteHalfWidth = 32
+	spriteGap       = 2
 )
 
 // resultCardWidth is the fixed width the Result Screen's card content is
 // centered/padded to, so the card's size doesn't jump around between
-// Pokémon with short vs. long names.
-const resultCardWidth = 52
+// Pokémon with short vs. long names. Wide enough to fit the front+back
+// sprite row (2*spriteHalfWidth + spriteGap = 66) with a little margin -
+// see docs/adr/0005-keep-both-sprites-near-full-resolution.md for why that
+// row needs to be this wide in the first place.
+const resultCardWidth = 70
 
 // statBarWidth is the bar's cell width (in block characters) in the base
 // stats table; maxBaseStat (255) is the highest possible base stat value
@@ -175,18 +183,18 @@ func renderResultCard(stat pokemon.StatBlock, sprite, spriteBack image.Image, po
 // the right, separated by a spriteGap-wide blank column. Either may be nil
 // (PokeAPI had none, or its fetch failed - see lookupCmd), in which case
 // only the other is rendered; if both are nil, the "no sprite" fallback
-// message is shown instead. When both are present, each is capped to half
-// of spriteMaxWidth (minus the gap) so the pair fits side by side; a lone
-// sprite gets the full spriteMaxWidth, matching the Result Screen's
-// pre-back-sprite sizing.
+// message is shown instead. When both are present, each is capped to
+// spriteHalfWidth rather than a naive half of spriteMaxWidth - see
+// docs/adr/0005-keep-both-sprites-near-full-resolution.md on why that
+// naive split destroys small sprite detail. A lone sprite gets the full
+// spriteMaxWidth, matching the Result Screen's pre-back-sprite sizing.
 func renderSprites(sprite, spriteBack image.Image) string {
 	if sprite == nil && spriteBack == nil {
 		return noSpriteStyle.Render("No sprite available")
 	}
 	if sprite != nil && spriteBack != nil {
-		halfWidth := (spriteMaxWidth - spriteGap) / 2
-		front := spriteart.Render(sprite, spriteart.Options{MaxWidth: halfWidth})
-		back := spriteart.Render(spriteBack, spriteart.Options{MaxWidth: halfWidth})
+		front := spriteart.Render(sprite, spriteart.Options{MaxWidth: spriteHalfWidth})
+		back := spriteart.Render(spriteBack, spriteart.Options{MaxWidth: spriteHalfWidth})
 		return lipgloss.JoinHorizontal(lipgloss.Top, front, strings.Repeat(" ", spriteGap), back)
 	}
 

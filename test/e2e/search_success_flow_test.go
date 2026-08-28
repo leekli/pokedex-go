@@ -21,8 +21,8 @@ func TestSearch_SuccessfulLookupByNameShowsResultScreen(t *testing.T) {
 		// Split across the two substrings rather than one long sentence,
 		// since the Result Screen word-wraps the Pokédex Entry to the
 		// card's width and the wrap point would otherwise land mid-string.
-		"When several of these Pokémon gather, their",
-		"electricity could build and cause lightning storms.",
+		"When several of these Pokémon gather, their electricity could build",
+		"and cause lightning storms.",
 		"Weak to", "Ground", "Resists")
 }
 
@@ -38,8 +38,8 @@ func TestSearch_SuccessfulLookupByDexNumberShowsResultScreen(t *testing.T) {
 		// Split across the two substrings rather than one long sentence,
 		// since the Result Screen word-wraps the Pokédex Entry to the
 		// card's width and the wrap point would otherwise land mid-string.
-		"When several of these Pokémon gather, their",
-		"electricity could build and cause lightning storms.",
+		"When several of these Pokémon gather, their electricity could build",
+		"and cause lightning storms.",
 		"Weak to", "Ground", "Resists")
 }
 

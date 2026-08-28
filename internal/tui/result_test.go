@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/leekli/pokedex-go/internal/pokemon"
 	"github.com/leekli/pokedex-go/internal/spriteart"
 )
@@ -124,6 +125,34 @@ func TestRenderSprites_LoneSpriteUsesFullWidth(t *testing.T) {
 	want := spriteart.Render(front, spriteart.Options{MaxWidth: spriteMaxWidth})
 	if got != want {
 		t.Errorf("renderSprites(front, nil) = %q, want %q (full spriteMaxWidth)", got, want)
+	}
+}
+
+// TestRenderSprites_BothSpritesUseSpriteHalfWidth proves that with both
+// front and back available, each is capped to spriteHalfWidth - not a naive
+// half of spriteMaxWidth, which would double spriteart.Render's downsample
+// scale and destroy small sprite detail (a Pikachu's cheek, an eye) - see
+// docs/adr/0005-keep-both-sprites-near-full-resolution.md.
+func TestRenderSprites_BothSpritesUseSpriteHalfWidth(t *testing.T) {
+	front := image.NewNRGBA(image.Rect(0, 0, 96, 96))
+	front.Set(0, 0, color.NRGBA{R: 255, G: 100, B: 0, A: 255})
+	back := image.NewNRGBA(image.Rect(0, 0, 96, 96))
+	back.Set(0, 0, color.NRGBA{R: 0, G: 100, B: 255, A: 255})
+
+	got := renderSprites(front, back)
+
+	frontWant := spriteart.Render(front, spriteart.Options{MaxWidth: spriteHalfWidth})
+	backWant := spriteart.Render(back, spriteart.Options{MaxWidth: spriteHalfWidth})
+	wantGap := strings.Repeat(" ", spriteGap)
+	want := lipgloss.JoinHorizontal(lipgloss.Top, frontWant, wantGap, backWant)
+
+	if got != want {
+		t.Errorf("renderSprites(front, back) did not use spriteHalfWidth for each sprite\ngot:\n%s\nwant:\n%s", got, want)
+	}
+
+	naiveHalf := (spriteMaxWidth - spriteGap) / 2
+	if naiveHalf == spriteHalfWidth {
+		t.Fatalf("test no longer distinguishes spriteHalfWidth (%d) from the naive half-of-spriteMaxWidth split (%d) - update the constants or this test", spriteHalfWidth, naiveHalf)
 	}
 }
 
