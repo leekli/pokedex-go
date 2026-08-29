@@ -198,7 +198,7 @@ func (m typeRosterModel) View() string {
 	var b strings.Builder
 
 	header := lipgloss.NewStyle().
-		Background(pokemon.TypeColor(m.typeName)).
+		Background(lipgloss.Color(pokemon.TypeColor(m.typeName))).
 		Foreground(lipgloss.Color("#000000")).
 		Bold(true).
 		Padding(0, 2).

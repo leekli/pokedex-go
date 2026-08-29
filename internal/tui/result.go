@@ -381,7 +381,7 @@ func renderMatchups(matchups []pokemon.TypeMatchup) string {
 	}
 	parts := make([]string, len(matchups))
 	for i, m := range matchups {
-		style := lipgloss.NewStyle().Foreground(pokemon.TypeColor(m.Type))
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(pokemon.TypeColor(m.Type)))
 		parts[i] = style.Render(capitalize(m.Type)) + " " + formatMultiplier(m.Multiplier)
 	}
 	return strings.Join(parts, ", ")
@@ -393,7 +393,7 @@ func renderMatchups(matchups []pokemon.TypeMatchup) string {
 func renderTypeNames(types []string) string {
 	parts := make([]string, len(types))
 	for i, t := range types {
-		style := lipgloss.NewStyle().Foreground(pokemon.TypeColor(t))
+		style := lipgloss.NewStyle().Foreground(lipgloss.Color(pokemon.TypeColor(t)))
 		parts[i] = style.Render(capitalize(t))
 	}
 	return strings.Join(parts, ", ")
@@ -423,7 +423,7 @@ func renderTypeBadges(types []string) string {
 	badges := make([]string, 0, len(types))
 	for _, t := range types {
 		style := lipgloss.NewStyle().
-			Background(pokemon.TypeColor(t)).
+			Background(lipgloss.Color(pokemon.TypeColor(t))).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 1)
@@ -438,7 +438,7 @@ func renderTypeBadges(types []string) string {
 // belongs to this specific Pokémon. Odd rows get a subtle background stripe
 // for readability; no cell borders, just a rule under the header.
 func renderStatTable(stat pokemon.StatBlock) string {
-	barColor := string(pokemon.TypeColor(stat.Types[0]))
+	barColor := pokemon.TypeColor(stat.Types[0])
 
 	entries := []struct {
 		label string

@@ -112,7 +112,7 @@ func (m typeSelectModel) View() string {
 			cursor = typeSelectCursorStyle.Render("▸ ")
 		}
 		badge := lipgloss.NewStyle().
-			Background(pokemon.TypeColor(t)).
+			Background(lipgloss.Color(pokemon.TypeColor(t))).
 			Foreground(lipgloss.Color("#000000")).
 			Bold(true).
 			Padding(0, 2).

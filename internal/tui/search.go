@@ -322,7 +322,7 @@ func searchBallArt() [7]string {
 func renderDotFlourish(types []string) string {
 	dots := make([]string, len(types))
 	for i, t := range types {
-		dots[i] = lipgloss.NewStyle().Foreground(pokemon.TypeColor(t)).Render("●")
+		dots[i] = lipgloss.NewStyle().Foreground(lipgloss.Color(pokemon.TypeColor(t))).Render("●")
 	}
 	return strings.Join(dots, " ")
 }
