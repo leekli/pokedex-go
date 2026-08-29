@@ -132,16 +132,16 @@ func (m resultModel) Update(msg tea.Msg) (resultModel, tea.Cmd) {
 
 func (m resultModel) View() string {
 	var b strings.Builder
-	b.WriteString(resultCardStyle.Render(renderResultCard(m.stat, m.spriteFront, m.spriteBack, m.pokedexEntry, m.evolutionChain, m.typeEffectiveness)))
+	b.WriteString(resultCardStyle.Render(m.renderCard()))
 	b.WriteString("\n\n")
 	b.WriteString(resultHintStyle.Render("Enter/Esc to search again · Q to quit"))
 	b.WriteString("\n")
 	return b.String()
 }
 
-// renderResultCard renders the card's interior: title, sprites (front and
-// back, side by side - or a "no sprite" fallback if neither is available),
-// type badges, the Evolution Chain (or its own fallback - see
+// renderCard renders the card's interior: title, sprites (front and back,
+// side by side - or a "no sprite" fallback if neither is available), type
+// badges, the Evolution Chain (or its own fallback - see
 // docs/adr/0006-scope-evolution-condition-text-to-common-cases.md), the
 // Pokédex Entry (or its own fallback - see
 // docs/adr/0003-prefer-generation-1-pokedex-entry-version.md),
@@ -149,39 +149,39 @@ func (m resultModel) View() string {
 // docs/adr/0004-all-or-nothing-type-effectiveness.md), height/weight, a
 // small dot flourish, and the base stats table - everything CONTEXT.md's
 // Stat Block already shows, just restyled, plus the sections alongside it.
-func renderResultCard(stat pokemon.StatBlock, spriteFront, spriteBack image.Image, pokedexEntry string, evolutionChain *pokemon.EvolutionChain, typeEffectiveness *pokemon.TypeEffectiveness) string {
+func (m resultModel) renderCard() string {
 	var b strings.Builder
 
-	title := fmt.Sprintf("#%03d %s", stat.DexNumber, capitalize(stat.Name))
+	title := fmt.Sprintf("#%03d %s", m.stat.DexNumber, capitalize(m.stat.Name))
 	b.WriteString(resultCenterStyle.Render(resultTitleStyle.Render(title)))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderSprites(spriteFront, spriteBack)))
+	b.WriteString(resultCenterStyle.Render(renderSprites(m.spriteFront, m.spriteBack)))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderTypeBadges(stat.Types)))
+	b.WriteString(resultCenterStyle.Render(renderTypeBadges(m.stat.Types)))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderEvolutionChain(stat.DexNumber, evolutionChain)))
+	b.WriteString(resultCenterStyle.Render(renderEvolutionChain(m.stat.DexNumber, m.evolutionChain)))
 	b.WriteString("\n\n")
 
-	if pokedexEntry != "" {
-		b.WriteString(resultEntryStyle.Render(pokedexEntry))
+	if m.pokedexEntry != "" {
+		b.WriteString(resultEntryStyle.Render(m.pokedexEntry))
 	} else {
 		b.WriteString(resultEntryStyle.Render(resultFallbackStyle.Render("No Pokédex entry available.")))
 	}
 	b.WriteString("\n\n")
 
-	b.WriteString(renderTypeEffectiveness(typeEffectiveness))
+	b.WriteString(renderTypeEffectiveness(m.typeEffectiveness))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderHeightWeight(stat)))
+	b.WriteString(resultCenterStyle.Render(renderHeightWeight(m.stat)))
 	b.WriteString("\n\n")
 
 	b.WriteString(resultCenterStyle.Render(renderDotFlourish(resultFlourishTypes)))
 	b.WriteString("\n\n")
 
-	b.WriteString(resultCenterStyle.Render(renderStatTable(stat)))
+	b.WriteString(resultCenterStyle.Render(renderStatTable(m.stat)))
 
 	return b.String()
 }
