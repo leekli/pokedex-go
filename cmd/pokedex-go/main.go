@@ -13,12 +13,21 @@ import (
 )
 
 func main() {
+	os.Exit(run())
+}
+
+// run wires up the Client and App, runs the Bubble Tea program, and returns
+// the process exit code — kept separate from main so app.Close() always
+// runs via defer before exiting, which os.Exit called directly from main
+// would skip.
+func run() int {
 	client := pokeapi.NewClient()
 	app := tui.NewApp(client)
 	defer app.Close()
 
 	if _, err := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "pokedex-go:", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
