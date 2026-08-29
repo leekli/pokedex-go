@@ -236,51 +236,30 @@ func renderEvolutionChain(dexNumber int, chain *pokemon.EvolutionChain) string {
 		return resultFallbackStyle.Render("Evolution data unavailable")
 	}
 
-	path := evolutionPathTo(chain.Root, dexNumber, nil)
-	if len(path) == 0 {
+	path := chain.PathTo(dexNumber)
+	if len(path.Stages) == 0 {
 		// Defensive: the Result Screen's own Pokémon should always be
 		// somewhere in its own Evolution Chain.
 		return resultFallbackStyle.Render("Evolution data unavailable")
 	}
-
-	current := path[len(path)-1]
-	if len(path) == 1 && len(current.EvolvesTo) == 0 {
+	if path.DoesNotEvolve() {
 		return "Does not evolve"
 	}
 
-	segments := make([]evolutionSegment, 0, len(path)+len(current.EvolvesTo))
-	for i, stage := range path {
+	segments := make([]evolutionSegment, 0, len(path.Stages)+len(path.EvolvesTo))
+	for i, stage := range path.Stages {
 		segments = append(segments, evolutionSegment{
 			name:      stage.Name,
-			current:   i == len(path)-1,
+			current:   i == len(path.Stages)-1,
 			condition: stage.Condition,
 		})
 	}
 	branchStart := len(segments)
-	for _, child := range current.EvolvesTo {
+	for _, child := range path.EvolvesTo {
 		segments = append(segments, evolutionSegment{name: child.Name, condition: child.Condition})
 	}
 
 	return renderEvolutionBreadcrumb(segments, branchStart)
-}
-
-// evolutionPathTo walks stage's subtree looking for dexNumber, returning
-// the path from the original root down to (and including) the matching
-// stage, or nil if dexNumber isn't found anywhere in it. ancestors is the
-// path so far (nil at the top-level call); a fresh slice is built at each
-// step rather than appending into a shared one, so sibling branches never
-// alias the same backing array.
-func evolutionPathTo(stage pokemon.EvolutionStage, dexNumber int, ancestors []pokemon.EvolutionStage) []pokemon.EvolutionStage {
-	path := append(append([]pokemon.EvolutionStage{}, ancestors...), stage)
-	if stage.DexNumber == dexNumber {
-		return path
-	}
-	for _, child := range stage.EvolvesTo {
-		if found := evolutionPathTo(child, dexNumber, path); found != nil {
-			return found
-		}
-	}
-	return nil
 }
 
 // evolutionSegment is one name shown in the Evolution Chain breadcrumb: a

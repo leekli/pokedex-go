@@ -26,6 +26,56 @@ type EvolutionChain struct {
 	Root EvolutionStage
 }
 
+// EvolutionPath describes how one specific Pokémon fits into its
+// EvolutionChain: the stages from the chain's root down to (and including)
+// it, plus what it can evolve into next (its own EvolvesTo — a branch, e.g.
+// Eevee's, means more than one). Plain data, like EvolutionChain itself — a
+// renderer decides how to lay it out (arrows, branches, which stage is
+// highlighted).
+type EvolutionPath struct {
+	Stages    []EvolutionStage
+	EvolvesTo []EvolutionStage
+}
+
+// PathTo finds dexNumber within c's tree and returns the path from the
+// chain's root down to (and including) that stage, along with what it
+// evolves into next. The zero value (nil Stages) means dexNumber wasn't
+// found anywhere in the chain — shouldn't happen for the chain's own
+// species, but callers should still check rather than assume.
+func (c EvolutionChain) PathTo(dexNumber int) EvolutionPath {
+	stages := evolutionPathTo(c.Root, dexNumber, nil)
+	if len(stages) == 0 {
+		return EvolutionPath{}
+	}
+	return EvolutionPath{Stages: stages, EvolvesTo: stages[len(stages)-1].EvolvesTo}
+}
+
+// DoesNotEvolve reports whether p represents a Pokémon with no evolution
+// relations at all (e.g. Tauros) — real information, not a degraded/failure
+// state, distinct from PathTo not finding dexNumber at all.
+func (p EvolutionPath) DoesNotEvolve() bool {
+	return len(p.Stages) == 1 && len(p.EvolvesTo) == 0
+}
+
+// evolutionPathTo walks stage's subtree looking for dexNumber, returning
+// the path from the original root down to (and including) the matching
+// stage, or nil if dexNumber isn't found anywhere in it. ancestors is the
+// path so far (nil at the top-level call); a fresh slice is built at each
+// step rather than appending into a shared one, so sibling branches never
+// alias the same backing array.
+func evolutionPathTo(stage EvolutionStage, dexNumber int, ancestors []EvolutionStage) []EvolutionStage {
+	path := append(append([]EvolutionStage{}, ancestors...), stage)
+	if stage.DexNumber == dexNumber {
+		return path
+	}
+	for _, child := range stage.EvolvesTo {
+		if found := evolutionPathTo(child, dexNumber, path); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
 // EvolutionCondition is the plain data pokeapi.BuildEvolutionChain extracts
 // from one PokeAPI evolution_details entry, before DescribeEvolutionCondition
 // turns it into display text. Kept as plain values rather than a pokeapi DTO
@@ -44,6 +94,25 @@ type EvolutionCondition struct {
 	TimeOfDay    string // "day", "night", or "" if not time-restricted
 }
 
+// Evolution trigger names, as PokeAPI names them, that DescribeEvolutionCondition
+// gives specific text to rather than falling back to "special condition".
+const (
+	triggerTrade = "trade"
+	triggerShed  = "shed"
+)
+
+// Condition display text reused across more than one DescribeEvolutionCondition
+// branch below. Kept separate from the trigger constants above even where a
+// value happens to match (triggerTrade / conditionTrade are both "trade") -
+// one is PokeAPI's trigger vocabulary, the other is this app's display text,
+// and conflating them would make a future trigger-name change silently
+// change display text too.
+const (
+	conditionTrade            = "trade"
+	conditionHighFriendship   = "high friendship"
+	conditionSpecialCondition = "special condition"
+)
+
 // DescribeEvolutionCondition renders c as the short phrase shown next to an
 // evolution arrow (e.g. "Lv. 16", "use Thunder Stone", "trade"). PokeAPI
 // supports far more evolution triggers than the common ones covered here
@@ -53,26 +122,26 @@ type EvolutionCondition struct {
 // docs/adr/0006-scope-evolution-condition-text-to-common-cases.md.
 func DescribeEvolutionCondition(c EvolutionCondition) string {
 	switch {
-	case c.Trigger == "trade" && c.TradeSpecies != "":
+	case c.Trigger == triggerTrade && c.TradeSpecies != "":
 		return "trade for " + humanizeSlug(c.TradeSpecies)
-	case c.Trigger == "trade" && c.HeldItem != "":
+	case c.Trigger == triggerTrade && c.HeldItem != "":
 		return "trade holding " + humanizeSlug(c.HeldItem)
-	case c.Trigger == "trade":
-		return "trade"
-	case c.Trigger == "shed":
+	case c.Trigger == triggerTrade:
+		return conditionTrade
+	case c.Trigger == triggerShed:
 		return "spare Poké Ball & party space"
 	case c.Item != "":
 		return "use " + humanizeSlug(c.Item)
 	case c.Level > 0 && c.Happiness:
-		return fmt.Sprintf("Lv. %d, high friendship", c.Level)
+		return fmt.Sprintf("Lv. %d, %s", c.Level, conditionHighFriendship)
 	case c.Level > 0 && c.TimeOfDay != "":
 		return fmt.Sprintf("Lv. %d (%s)", c.Level, c.TimeOfDay)
 	case c.Level > 0:
 		return fmt.Sprintf("Lv. %d", c.Level)
 	case c.Happiness && c.TimeOfDay != "":
-		return "high friendship (" + c.TimeOfDay + ")"
+		return conditionHighFriendship + " (" + c.TimeOfDay + ")"
 	case c.Happiness:
-		return "high friendship"
+		return conditionHighFriendship
 	case c.Beauty:
 		return "high beauty"
 	case c.KnownMove != "":
@@ -80,7 +149,7 @@ func DescribeEvolutionCondition(c EvolutionCondition) string {
 	case c.TimeOfDay != "":
 		return "level up (" + c.TimeOfDay + ")"
 	default:
-		return "special condition"
+		return conditionSpecialCondition
 	}
 }
 

@@ -104,6 +104,94 @@ func TestDescribeEvolutionCondition(t *testing.T) {
 	}
 }
 
+// pichuPikachuRaichuChain mirrors the real Pichu -> Pikachu -> Raichu family,
+// used by both TestEvolutionChain_PathTo and TestEvolutionChain_DoesNotEvolve.
+func pichuPikachuRaichuChain() EvolutionChain {
+	return EvolutionChain{
+		Root: EvolutionStage{
+			DexNumber: 172,
+			Name:      "pichu",
+			EvolvesTo: []EvolutionStage{
+				{
+					DexNumber: 25,
+					Name:      "pikachu",
+					Condition: "high friendship",
+					EvolvesTo: []EvolutionStage{
+						{DexNumber: 26, Name: "raichu", Condition: "use Thunder Stone"},
+					},
+				},
+			},
+		},
+	}
+}
+
+// TestEvolutionChain_PathTo_MidChain proves looking up a middle stage
+// (Pikachu) returns the path down to it (Pichu, Pikachu) plus what it still
+// evolves into (Raichu) - not the full tree, and not stages beyond Raichu.
+func TestEvolutionChain_PathTo_MidChain(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	path := chain.PathTo(25)
+
+	if len(path.Stages) != 2 || path.Stages[0].Name != "pichu" || path.Stages[1].Name != "pikachu" {
+		t.Errorf("PathTo(25).Stages = %+v, want [pichu, pikachu]", path.Stages)
+	}
+	if len(path.EvolvesTo) != 1 || path.EvolvesTo[0].Name != "raichu" {
+		t.Errorf("PathTo(25).EvolvesTo = %+v, want [raichu]", path.EvolvesTo)
+	}
+}
+
+// TestEvolutionChain_PathTo_UnknownDexNumber proves a dex number absent from
+// the chain returns the zero value rather than panicking.
+func TestEvolutionChain_PathTo_UnknownDexNumber(t *testing.T) {
+	chain := pichuPikachuRaichuChain()
+
+	path := chain.PathTo(999)
+
+	if len(path.Stages) != 0 {
+		t.Errorf("PathTo(999).Stages = %+v, want empty for a dex number not in the chain", path.Stages)
+	}
+}
+
+// TestEvolutionChain_PathTo_Branching proves a species with multiple
+// evolutions (Eevee) returns every sibling in EvolvesTo, not just the first.
+func TestEvolutionChain_PathTo_Branching(t *testing.T) {
+	chain := EvolutionChain{
+		Root: EvolutionStage{
+			DexNumber: 133,
+			Name:      "eevee",
+			EvolvesTo: []EvolutionStage{
+				{DexNumber: 134, Name: "vaporeon", Condition: "use Water Stone"},
+				{DexNumber: 135, Name: "jolteon", Condition: "use Thunder Stone"},
+			},
+		},
+	}
+
+	path := chain.PathTo(133)
+
+	if len(path.EvolvesTo) != 2 {
+		t.Errorf("PathTo(133).EvolvesTo = %+v, want both vaporeon and jolteon", path.EvolvesTo)
+	}
+}
+
+// TestEvolutionPath_DoesNotEvolve proves a single-stage chain with no
+// EvolvesTo (e.g. Tauros) reports DoesNotEvolve, while any other path
+// (mid-chain, or a leaf reached via PathTo) does not.
+func TestEvolutionPath_DoesNotEvolve(t *testing.T) {
+	tauros := EvolutionChain{Root: EvolutionStage{DexNumber: 128, Name: "tauros"}}
+	if !tauros.PathTo(128).DoesNotEvolve() {
+		t.Error("PathTo(128).DoesNotEvolve() = false for a single-stage chain with no evolutions, want true")
+	}
+
+	chain := pichuPikachuRaichuChain()
+	if chain.PathTo(25).DoesNotEvolve() {
+		t.Error("PathTo(25).DoesNotEvolve() = true for Pikachu (still evolves into Raichu), want false")
+	}
+	if chain.PathTo(26).DoesNotEvolve() {
+		t.Error("PathTo(26).DoesNotEvolve() = true for a leaf reached via a multi-stage path, want false (only a single-stage root with no evolutions counts)")
+	}
+}
+
 func TestHumanizeSlug(t *testing.T) {
 	tests := []struct {
 		slug string
