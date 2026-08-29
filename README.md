@@ -204,36 +204,7 @@ Both paths into the Result Screen end up calling the same
 `GetPokemon` directly. Any failure is classified as a `*LookupError` (bad
 input) or `*ServiceError` (PokeAPI's fault) — see CONTEXT.md. `lookupCmd`
 then makes further, per-Pokémon fetches for the Result Screen's other
-sections, each with its own failure contract:
-
-- **Sprite** (front and back, fetched independently), **Pokédex Entry**, and
-  **Evolution Chain** are all best-effort — a failed fetch just leaves that
-  image blank / shows the section's fallback message ("No sprite
-  available" / "No Pokédex entry available." / "Evolution data
-  unavailable") rather than failing the whole lookup; the Sprite falls back
-  to "No sprite available" only if both front and back fail. The Pokédex
-  Entry prefers a Generation I game version where one exists — see
-  [`docs/adr/0003`](./docs/adr/0003-prefer-generation-1-pokedex-entry-version.md).
-  The Evolution Chain only describes common evolution conditions (level,
-  friendship, item, trade, ...), falling back to "special condition" for
-  PokeAPI's rarer ones — see
-  [`docs/adr/0006`](./docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
-- **Weaknesses & Resistances** is all-or-nothing instead: it needs a
-  `GetTypeDamageRelations` call per one of the Pokémon's types (1 or 2),
-  combined by `pokeapi.BuildTypeEffectiveness`, and if any one of those
-  calls fails the whole section falls back to "unavailable" rather than
-  risk showing a partial chart that could be outright wrong (a missing
-  type can flip a resistance into a weakness, or cancel one out entirely)
-  — see [`docs/adr/0004`](./docs/adr/0004-all-or-nothing-type-effectiveness.md).
-
-The Type Roster Screen's own data comes from `Client.GetPokemonByType`
-(PokeAPI's `/type/{name}`, filtered down to real, dex-numbered Pokémon —
-see [`docs/adr/0002`](./docs/adr/0002-filter-type-roster-by-pokemon-id.md))
-plus `Client.GetGenerationIndex`, a nine-request, best-effort map of every
-generation. `GetPokemonByType` reads the same `/type/{name}` resource as
-`GetTypeDamageRelations` above, so browsing a Type Roster and then looking
-up one of its Pokémon never fetches that type's data twice — see
-[Caching](#caching) below.
+sections, each with its own failure contract.
 
 ### Caching
 
