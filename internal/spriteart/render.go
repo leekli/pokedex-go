@@ -73,24 +73,21 @@ func samplePixel(img image.Image, bounds image.Rectangle, x, y int) rgba {
 }
 
 func renderCell(top, bottom rgba) string {
-	if !top.visible && !bottom.visible {
+	switch {
+	case !top.visible && !bottom.visible:
 		return " "
-	}
-
-	style := lipgloss.NewStyle()
-	if top.visible {
-		style = style.Foreground(lipgloss.Color(hex(top)))
-	}
-	if bottom.visible {
-		style = style.Background(lipgloss.Color(hex(bottom)))
-	}
-
-	if !top.visible {
+	case !top.visible:
 		// No top pixel to draw: render a full block in the background color
 		// instead of an invisible foreground glyph over a colored background.
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex(bottom))).Render("▄")
+	case !bottom.visible:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(hex(top))).Render("▀")
+	default:
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color(hex(top))).
+			Background(lipgloss.Color(hex(bottom))).
+			Render("▀")
 	}
-	return style.Render("▀")
 }
 
 func hex(c rgba) string {
