@@ -64,7 +64,7 @@ func (c *Client) get(ctx context.Context, path, queryDescription string, out int
 	if err != nil {
 		return &ServiceError{Err: err}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	switch {
 	case resp.StatusCode == http.StatusNotFound:

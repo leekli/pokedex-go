@@ -34,7 +34,7 @@ func (c *Client) FetchSprite(ctx context.Context, url string) (image.Image, erro
 	if err != nil {
 		return nil, &ServiceError{Err: err}
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, &ServiceError{Err: fmt.Errorf("unexpected status %d fetching sprite", resp.StatusCode)}
