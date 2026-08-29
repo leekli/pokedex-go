@@ -1,0 +1,50 @@
+version: "2"
+
+# The linter set and exemptions here encode the findings and judgment calls
+# from the clean-code/architecture audit (see the pre-implementation review
+# artifact) - each exemption exists because a linter default produced a
+# false positive against this codebase's own idioms, not because the rule
+# is wrong in general. See CLAUDE.md for the four build-clean checks
+# (gofmt, vet, build, test) this complements; CI runs `golangci-lint run`
+# as a fifth.
+linters:
+  default: standard
+  enable:
+    - dupl
+    - funlen
+    - gocognit
+    - gocritic
+    - gocyclo
+    - goconst
+    - nakedret
+    - revive
+    - unparam
+  settings:
+    funlen:
+      lines: 60
+      statements: 40
+  exclusions:
+    rules:
+      # Table-driven test functions are one long table, not real
+      # complexity or duplication; test fixture servers' response writes
+      # (w.Write/fmt.Fprintf) failing would just fail the test loudly
+      # downstream, not silently.
+      - path: _test\.go
+        linters:
+          - funlen
+          - goconst
+          - errcheck
+
+      # Bubble Tea's tea.Model interface requires Init/Update/View on
+      # every screen model; a doc comment on them would just restate the
+      # interface, conflicting with this repo's own "no comments unless
+      # the WHY is non-obvious" rule (see CLAUDE.md/AGENTS conventions).
+      # Their Update/View bodies are also linear message-dispatch/render
+      # code, not real complexity, however long the screen's message
+      # switch or render sequence grows.
+      - text: "exported (method|function) .*\\.(Init|Update|View) should have comment"
+        linters:
+          - revive
+      - source: '\) (Update|View)\('
+        linters:
+          - funlen

@@ -10,7 +10,7 @@ import "strings"
 // introduced after Generation I (National Dex Number > 151) has no
 // red/blue/yellow entry, so SelectPokedexEntry always falls through to the
 // first English entry found for those.
-var pokedexEntryVersionPriority = []string{"red", "blue", "yellow"}
+var pokedexEntryVersionPriority = []string{"red", "blue", "yellow"} //nolint:goconst // mirrors evolutionDetailVersionGroupPriority at a different granularity; can't share a constant, see evolution.go
 
 // SelectPokedexEntry picks one English-language Pokédex Entry out of a
 // species' flavor text entries (there's typically one per game version the

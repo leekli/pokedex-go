@@ -79,7 +79,7 @@ const statTableEmptyColor = "#30363D"
 // flourish - fewer than the Search Screen's (see searchFlourishTypes),
 // since CONTEXT.md's Stat Block is a dense data screen where the same
 // maximalist brand motif should read as a light touch, not a repeat.
-var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychic"}
+var resultFlourishTypes = []string{"fire", "water", "grass", "electric", "psychic"} //nolint:goconst // deliberately overlaps searchFlourishTypes' palette, see above
 
 // resultModel is the Result Screen: the looked-up Pokémon's rendered Sprite
 // (or a fallback message) and its Stat Block, presented as a single bordered

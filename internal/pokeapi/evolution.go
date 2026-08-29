@@ -119,7 +119,7 @@ func (d evolutionDetailDTO) toDomain() EvolutionDetail {
 // Sun/Moon), BuildEvolutionChain prefers whichever of these appears first,
 // falling back to the first entry PokeAPI returned if none match - see
 // docs/adr/0006-scope-evolution-condition-text-to-common-cases.md.
-var evolutionDetailVersionGroupPriority = []string{"red-blue", "yellow"}
+var evolutionDetailVersionGroupPriority = []string{"red-blue", "yellow"} //nolint:goconst // mirrors pokedexEntryVersionPriority at a different granularity (version-group vs. version); can't share a constant, see doc comment above
 
 // BuildEvolutionChain maps a raw EvolutionChainNode tree (see
 // GetEvolutionChain) into the pokemon.EvolutionChain shown on the Result

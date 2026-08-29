@@ -76,8 +76,8 @@ var searchExamples = []struct {
 	name   string
 	accent string
 }{
-	{"pikachu", pokemonYellow},
-	{"charizard", pokemonBlue},
+	{"pikachu", pokemonYellow}, //nolint:goconst // curated example copy, not accidental duplication
+	{"charizard", pokemonBlue}, //nolint:goconst // curated example copy, not accidental duplication
 	{"25", pokemonRed},
 	{"mew", pokemonYellow},
 	{"snorlax", pokemonBlue},
@@ -88,7 +88,7 @@ var searchExamples = []struct {
 // its palette stays in sync with the Result Screen's type badges rather than
 // duplicating hex values.
 var searchFlourishTypes = []string{
-	"fire", "water", "grass", "electric", "psychic", "dragon", "poison", "ice", "fairy",
+	"fire", "water", "grass", "electric", "psychic", "dragon", "poison", "ice", "fairy", //nolint:goconst // deliberately overlaps resultFlourishTypes' palette; see its own doc comment
 }
 
 // searchFocus identifies which of the Search Screen's two focusable
