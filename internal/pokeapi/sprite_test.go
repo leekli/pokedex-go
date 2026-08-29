@@ -28,7 +28,7 @@ func fixturePNG(t *testing.T) []byte {
 // Client.get (sprites are served from a different host than the API).
 func TestFetchSprite_Success(t *testing.T) {
 	sprite := fixturePNG(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
 		w.Write(sprite)
@@ -53,7 +53,7 @@ func TestFetchSprite_Success(t *testing.T) {
 // sprite link) is classified as a ServiceError, never the user's mistake -
 // see the doc comment on FetchSprite.
 func TestFetchSprite_NonOKStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(server.Close)
@@ -70,7 +70,7 @@ func TestFetchSprite_NonOKStatus(t *testing.T) {
 // TestFetchSprite_MalformedImage proves a 200 response whose body isn't a
 // decodable image is still a ServiceError, not a panic or a silent nil.
 func TestFetchSprite_MalformedImage(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("not an image"))
 	}))
@@ -88,7 +88,7 @@ func TestFetchSprite_MalformedImage(t *testing.T) {
 // TestFetchSprite_TransportError proves a request that never reaches a
 // server (connection refused) is also a ServiceError.
 func TestFetchSprite_TransportError(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
 	deadURL := server.URL + "/sprites/pikachu.png"
 	server.Close() // close immediately so the URL is now unreachable
 
@@ -107,7 +107,7 @@ func TestFetchSprite_TransportError(t *testing.T) {
 func TestFetchSprite_CachesAcrossCalls(t *testing.T) {
 	hits := 0
 	sprite := fixturePNG(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)

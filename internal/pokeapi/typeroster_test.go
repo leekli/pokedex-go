@@ -31,7 +31,7 @@ const fireTypeJSON = `{
 }`
 
 func TestGetPokemonByType_FiltersAndSortsByDexNumber(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/type/fire": {status: http.StatusOK, body: fireTypeJSON},
 	})
 
@@ -56,7 +56,7 @@ func TestGetPokemonByType_FiltersAndSortsByDexNumber(t *testing.T) {
 }
 
 func TestGetPokemonByType_NotFound(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/type/notarealtype": {status: http.StatusNotFound},
 	})
 
@@ -69,7 +69,7 @@ func TestGetPokemonByType_NotFound(t *testing.T) {
 }
 
 func TestGetPokemonByType_ServiceError(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/type/fire": {status: http.StatusInternalServerError},
 	})
 
@@ -87,7 +87,7 @@ func TestGetPokemonByType_ServiceError(t *testing.T) {
 func TestGetPokemonByType_CachesAcrossCalls(t *testing.T) {
 	hits := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fireTypeJSON))
@@ -119,7 +119,7 @@ func TestGetPokemonByType_CachesAcrossCalls(t *testing.T) {
 func TestGetPokemonByType_ErrorsAreNotCached(t *testing.T) {
 	fail := true
 	mux := http.NewServeMux()
-	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, _ *http.Request) {
 		if fail {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -146,7 +146,7 @@ func TestGetPokemonByType_ErrorsAreNotCached(t *testing.T) {
 }
 
 func TestGetTypeDamageRelations_DecodesDamageRelations(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/type/fire": {status: http.StatusOK, body: fireTypeJSON},
 	})
 
@@ -174,7 +174,7 @@ func TestGetTypeDamageRelations_DecodesDamageRelations(t *testing.T) {
 func TestGetPokemonByType_AndGetTypeDamageRelations_ShareOneFetch(t *testing.T) {
 	hits := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fireTypeJSON))
@@ -202,7 +202,7 @@ func TestGetPokemonByType_AndGetTypeDamageRelations_ShareOneFetch(t *testing.T) 
 func TestGetTypeDamageRelations_ErrorsAreNotCached(t *testing.T) {
 	fail := true
 	mux := http.NewServeMux()
-	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, _ *http.Request) {
 		if fail {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

@@ -84,28 +84,27 @@ const pikachuSpeciesWithFlavorTextJSON = `{
 }`
 
 // newFixtureServer builds an httptest.Server that serves canned JSON bodies
-// for specific paths, and a Client pointed at it. Tests never touch the
-// real network.
-func newFixtureServer(t *testing.T, routes map[string]fixtureResponse) (*httptest.Server, *Client) {
+// for specific paths, and returns a Client pointed at it. Tests never touch
+// the real network.
+func newFixtureServer(t *testing.T, routes map[string]fixtureResponse) *Client {
 	t.Helper()
 	mux := http.NewServeMux()
 	for path, resp := range routes {
 		resp := resp
-		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 			if resp.delay > 0 {
 				time.Sleep(resp.delay)
 			}
 			w.WriteHeader(resp.status)
 			if resp.body != "" {
-				w.Write([]byte(resp.body))
+				_, _ = w.Write([]byte(resp.body))
 			}
 		})
 	}
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	client := NewClient(WithBaseURL(server.URL))
-	return server, client
+	return NewClient(WithBaseURL(server.URL))
 }
 
 type fixtureResponse struct {
@@ -115,7 +114,7 @@ type fixtureResponse struct {
 }
 
 func TestGetPokemon_Success(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon/pikachu": {status: http.StatusOK, body: pikachuPokemonJSON},
 	})
 
@@ -134,7 +133,7 @@ func TestGetPokemon_Success(t *testing.T) {
 // TestGetPokemon_DecodesBackSprite proves back_default decodes into
 // Pokemon.SpriteBackURL, independently of front_default/SpriteFrontURL.
 func TestGetPokemon_DecodesBackSprite(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon/pikachu": {status: http.StatusOK, body: pikachuPokemonWithBackSpriteJSON},
 	})
 
@@ -151,7 +150,7 @@ func TestGetPokemon_DecodesBackSprite(t *testing.T) {
 }
 
 func TestGetPokemon_NotFound(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon/notarealpokemon": {status: http.StatusNotFound},
 	})
 
@@ -164,7 +163,7 @@ func TestGetPokemon_NotFound(t *testing.T) {
 }
 
 func TestGetSpecies_ServerError(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon-species/25": {status: http.StatusInternalServerError},
 	})
 
@@ -177,7 +176,7 @@ func TestGetSpecies_ServerError(t *testing.T) {
 }
 
 func TestGetPokemon_Timeout(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon/pikachu": {status: http.StatusOK, body: pikachuPokemonJSON, delay: 100 * time.Millisecond},
 	})
 	client.httpClient = &http.Client{Timeout: 10 * time.Millisecond}
@@ -191,7 +190,7 @@ func TestGetPokemon_Timeout(t *testing.T) {
 }
 
 func TestGetPokemon_MalformedJSON(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon/pikachu": {status: http.StatusOK, body: "{not valid json"},
 	})
 
@@ -207,12 +206,12 @@ func TestLookup_DexNumberChainsSpeciesThenPokemon(t *testing.T) {
 	var hitSpecies, hitPokemonAfterSpecies bool
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, _ *http.Request) {
 		hitSpecies = true
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(pikachuSpeciesJSON))
 	})
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		if !hitSpecies {
 			t.Error("GetPokemon was called before GetSpecies for a DexNumber query")
 		}
@@ -242,10 +241,10 @@ func TestLookup_DexNumberChainsSpeciesThenPokemon(t *testing.T) {
 func TestLookup_DexNumberSpeciesLookupFails(t *testing.T) {
 	pokemonCalled := false
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/9999", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/9999", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
-	mux.HandleFunc("/pokemon/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/", func(w http.ResponseWriter, _ *http.Request) {
 		pokemonCalled = true
 		w.WriteHeader(http.StatusOK)
 	})
@@ -269,7 +268,7 @@ func TestLookup_DexNumberSpeciesLookupFails(t *testing.T) {
 // (cleanup is SelectPokedexEntry's job, tested separately) and non-English
 // entries preserved rather than filtered at this layer.
 func TestGetSpecies_DecodesFlavorTextEntries(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon-species/25": {status: http.StatusOK, body: pikachuSpeciesWithFlavorTextJSON},
 	})
 
@@ -296,7 +295,7 @@ func TestGetSpecies_DecodesFlavorTextEntries(t *testing.T) {
 // TestGetSpecies_DecodesEvolutionChainID proves evolution_chain.url decodes
 // into Species.EvolutionChainID (see GetEvolutionChain).
 func TestGetSpecies_DecodesEvolutionChainID(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon-species/25": {status: http.StatusOK, body: pikachuSpeciesWithEvolutionChainJSON},
 	})
 
@@ -317,7 +316,7 @@ func TestGetSpecies_NoDefaultVariety(t *testing.T) {
 			{"is_default": false, "pokemon": {"name": "pikachu-gmax"}}
 		]
 	}`
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/pokemon-species/25": {status: http.StatusOK, body: speciesWithNoDefaultJSON},
 	})
 
@@ -329,36 +328,68 @@ func TestGetSpecies_NoDefaultVariety(t *testing.T) {
 	}
 }
 
-// TestGetPokemon_CachesAcrossCalls proves a second GetPokemon call for the
-// same name is served from the Client's cache rather than hitting PokeAPI
-// again - see cache's doc comment on why this is safe given PokeAPI data
-// effectively never changes.
-func TestGetPokemon_CachesAcrossCalls(t *testing.T) {
-	hits := 0
-	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(pikachuPokemonJSON))
-	})
-	server := httptest.NewServer(mux)
-	t.Cleanup(server.Close)
-	client := NewClient(WithBaseURL(server.URL))
+// TestCachesAcrossCalls proves a second GetPokemon/GetSpecies call for the
+// same name/id is served from the Client's cache rather than hitting
+// PokeAPI again - see cache's doc comment on why this is safe given PokeAPI
+// data effectively never changes. GetPokemon and GetSpecies are exercised
+// identically (fixed path/body, count hits, compare two calls), so they
+// share one table rather than two near-identical test bodies.
+func TestCachesAcrossCalls(t *testing.T) {
+	tests := []struct {
+		name  string
+		path  string
+		body  string
+		fetch func(*Client) (id int, pokemonName string, err error)
+	}{
+		{
+			name: "GetPokemon",
+			path: "/pokemon/pikachu",
+			body: pikachuPokemonJSON,
+			fetch: func(c *Client) (int, string, error) {
+				p, err := c.GetPokemon(context.Background(), "pikachu")
+				return p.ID, p.Name, err
+			},
+		},
+		{
+			name: "GetSpecies",
+			path: "/pokemon-species/25",
+			body: pikachuSpeciesJSON,
+			fetch: func(c *Client) (int, string, error) {
+				s, err := c.GetSpecies(context.Background(), "25")
+				return s.ID, s.Name, err
+			},
+		},
+	}
 
-	first, err := client.GetPokemon(context.Background(), "pikachu")
-	if err != nil {
-		t.Fatalf("first GetPokemon returned error: %v", err)
-	}
-	second, err := client.GetPokemon(context.Background(), "pikachu")
-	if err != nil {
-		t.Fatalf("second GetPokemon returned error: %v", err)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hits := 0
+			mux := http.NewServeMux()
+			mux.HandleFunc(tt.path, func(w http.ResponseWriter, _ *http.Request) {
+				hits++
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(tt.body))
+			})
+			server := httptest.NewServer(mux)
+			t.Cleanup(server.Close)
+			client := NewClient(WithBaseURL(server.URL))
 
-	if hits != 1 {
-		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
-	}
-	if second.ID != first.ID || second.Name != first.Name {
-		t.Errorf("cached GetPokemon = %+v, want the same result as the first call %+v", second, first)
+			firstID, firstName, err := tt.fetch(client)
+			if err != nil {
+				t.Fatalf("first %s returned error: %v", tt.name, err)
+			}
+			secondID, secondName, err := tt.fetch(client)
+			if err != nil {
+				t.Fatalf("second %s returned error: %v", tt.name, err)
+			}
+
+			if hits != 1 {
+				t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
+			}
+			if secondID != firstID || secondName != firstName {
+				t.Errorf("cached %s = (%d, %q), want the same result as the first call (%d, %q)", tt.name, secondID, secondName, firstID, firstName)
+			}
+		})
 	}
 }
 
@@ -368,7 +399,7 @@ func TestGetPokemon_CachesAcrossCalls(t *testing.T) {
 func TestGetPokemon_ErrorsAreNotCached(t *testing.T) {
 	fail := true
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		if fail {
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -394,46 +425,14 @@ func TestGetPokemon_ErrorsAreNotCached(t *testing.T) {
 	}
 }
 
-// TestGetSpecies_CachesAcrossCalls proves a second GetSpecies call for the
-// same id/name is served from the Client's cache rather than hitting
-// PokeAPI again.
-func TestGetSpecies_CachesAcrossCalls(t *testing.T) {
-	hits := 0
-	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
-		hits++
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(pikachuSpeciesJSON))
-	})
-	server := httptest.NewServer(mux)
-	t.Cleanup(server.Close)
-	client := NewClient(WithBaseURL(server.URL))
-
-	first, err := client.GetSpecies(context.Background(), "25")
-	if err != nil {
-		t.Fatalf("first GetSpecies returned error: %v", err)
-	}
-	second, err := client.GetSpecies(context.Background(), "25")
-	if err != nil {
-		t.Fatalf("second GetSpecies returned error: %v", err)
-	}
-
-	if hits != 1 {
-		t.Errorf("PokeAPI was hit %d times, want 1 (second call should be served from cache)", hits)
-	}
-	if second.ID != first.ID || second.Name != first.Name {
-		t.Errorf("cached GetSpecies = %+v, want %+v", second, first)
-	}
-}
-
 func TestLookup_NameQueryCallsPokemonDirectly(t *testing.T) {
 	speciesCalled := false
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/", func(w http.ResponseWriter, _ *http.Request) {
 		speciesCalled = true
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(pikachuPokemonJSON))
 	})

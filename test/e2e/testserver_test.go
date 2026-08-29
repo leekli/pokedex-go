@@ -198,14 +198,14 @@ func newFixtureServer(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusNotFound)
 		}
 	})
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(pikachuEvolutionChainJSON))
+		_, _ = w.Write([]byte(pikachuEvolutionChainJSON))
 	})
-	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
 		w.WriteHeader(http.StatusOK)
-		w.Write(sprite)
+		_, _ = w.Write(sprite)
 	})
 	mux.HandleFunc("/type/{name}", func(w http.ResponseWriter, r *http.Request) {
 		switch r.PathValue("name") {

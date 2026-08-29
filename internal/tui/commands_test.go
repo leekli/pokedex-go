@@ -47,7 +47,7 @@ func newLookupCmdFrontSpriteServer(t *testing.T, includeFrontSprite bool, frontS
 	var baseURL string
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		frontSpriteJSON := "null"
 		if includeFrontSprite {
 			frontSpriteJSON = fmt.Sprintf(`"%s/sprites/pikachu.png"`, baseURL)
@@ -55,7 +55,7 @@ func newLookupCmdFrontSpriteServer(t *testing.T, includeFrontSprite bool, frontS
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, frontSpriteJSON)
 	})
-	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/sprites/pikachu.png", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(frontSpriteStatus)
 		if frontSpriteStatus == http.StatusOK {
 			w.Write(commandsTestFixturePNG(t))
@@ -156,11 +156,11 @@ func newLookupCmdBackSpriteServer(t *testing.T, backSpriteStatus int) *pokeapi.C
 	var baseURL string
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuFrontBackJSONTemplate, fmt.Sprintf(`"%s/sprites/pikachu-back.png"`, baseURL))
 	})
-	mux.HandleFunc("/sprites/pikachu-back.png", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/sprites/pikachu-back.png", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(backSpriteStatus)
 		if backSpriteStatus == http.StatusOK {
 			w.Write(commandsTestFixturePNG(t))
@@ -239,11 +239,11 @@ const lookupCmdPikachuSpeciesJSON = `{
 // generation-1-pokedex-entry-version.md.
 func TestLookupCmd_IncludesPokedexEntry(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPikachuSpeciesJSON))
 	})
@@ -266,11 +266,11 @@ func TestLookupCmd_IncludesPokedexEntry(t *testing.T) {
 // sprite fetch doesn't (see TestLookupCmd_FrontSpriteFetchFailureStillSucceeds).
 func TestLookupCmd_PokedexEntryFetchFailureStillSucceeds(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	server := httptest.NewServer(mux)
@@ -296,12 +296,12 @@ func TestLookupCmd_PokedexEntryFetchFailureStillSucceeds(t *testing.T) {
 func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForPokedexEntry(t *testing.T) {
 	hits := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPikachuSpeciesJSON))
 	})
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
@@ -369,15 +369,15 @@ const lookupCmdPichuPikachuRaichuChainJSON = `{
 // docs/adr/0006-scope-evolution-condition-text-to-common-cases.md).
 func TestLookupCmd_IncludesEvolutionChain(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
 	})
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPichuPikachuRaichuChainJSON))
 	})
@@ -404,15 +404,15 @@ func TestLookupCmd_IncludesEvolutionChain(t *testing.T) {
 // best-effort, the same as a failed sprite or Pokédex Entry fetch.
 func TestLookupCmd_EvolutionChainFetchFailureStillSucceeds(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
 	})
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	server := httptest.NewServer(mux)
@@ -440,16 +440,16 @@ func TestLookupCmd_EvolutionChainFetchFailureStillSucceeds(t *testing.T) {
 func TestLookupCmd_DexNumberQueryReusesSpeciesCacheForEvolutionChain(t *testing.T) {
 	hits := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon-species/25", func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPikachuSpeciesWithEvolutionChainJSON))
 	})
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdPichuPikachuRaichuChainJSON))
 	})
@@ -491,11 +491,11 @@ const lookupCmdElectricTypeJSON = `{
 // (Electric) type.
 func TestLookupCmd_IncludesTypeEffectiveness(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdElectricTypeJSON))
 	})
@@ -522,11 +522,11 @@ func TestLookupCmd_IncludesTypeEffectiveness(t *testing.T) {
 // docs/adr/0004-all-or-nothing-type-effectiveness.md.
 func TestLookupCmd_TypeEffectivenessUnavailableOnFetchFailure(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/pikachu", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, lookupCmdPikachuJSONTemplate, "null")
 	})
-	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/electric", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	server := httptest.NewServer(mux)
@@ -575,15 +575,15 @@ const lookupCmdFireTypeJSON = `{
 // docs/adr/0004-all-or-nothing-type-effectiveness.md.
 func TestLookupCmd_DualTypePartialFailureOmitsEffectivenessEntirely(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/charizard", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/charizard", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdCharizardJSONTemplate))
 	})
-	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/fire", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(lookupCmdFireTypeJSON))
 	})
-	mux.HandleFunc("/type/flying", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/type/flying", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	server := httptest.NewServer(mux)
@@ -608,7 +608,7 @@ func TestLookupCmd_DualTypePartialFailureOmitsEffectivenessEntirely(t *testing.T
 // lookupResultMsg.err, unmodified, with no stat block.
 func TestLookupCmd_LookupError(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pokemon/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/pokemon/", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 	server := httptest.NewServer(mux)

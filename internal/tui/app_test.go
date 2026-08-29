@@ -308,7 +308,7 @@ func TestApp_Update_ShowTypeRosterMsg_PushesHistoryAndTriggersLoad(t *testing.T)
 // TestApp_Close_NilZonesIsSafe proves Close doesn't panic on a zero-value
 // App (no zone manager), matching the nil-safety the rest of the mouse
 // support relies on (see zones.go).
-func TestApp_Close_NilZonesIsSafe(t *testing.T) {
+func TestApp_Close_NilZonesIsSafe(_ *testing.T) {
 	var a App
 	a.Close()
 }

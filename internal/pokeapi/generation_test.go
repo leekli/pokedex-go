@@ -20,7 +20,7 @@ func TestGetGenerationIndex_BuildsFullIndex(t *testing.T) {
 	mux := http.NewServeMux()
 	for i := 1; i <= generationCount; i++ {
 		i := i
-		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			// dex id = generation number, so each generation's one entry is
 			// trivially distinguishable in the assertions below.
@@ -46,12 +46,12 @@ func TestGetGenerationIndex_BuildsFullIndex(t *testing.T) {
 
 func TestGetGenerationIndex_PartialFailureStillReturnsWhatSucceeded(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/generation/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/generation/1", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	for i := 2; i <= generationCount; i++ {
 		i := i
-		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(generationFixtureJSON("generation-"+strconv.Itoa(i), i, "species-"+strconv.Itoa(i))))
 		})
@@ -75,7 +75,7 @@ func TestGetGenerationIndex_PartialFailureStillReturnsWhatSucceeded(t *testing.T
 // skipped, rather than corrupting the index or panicking.
 func TestGetGenerationIndex_SkipsUnparsableSpeciesURL(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/generation/1", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/generation/1", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"name": "generation-i", "pokemon_species": [
 			{"name": "bad", "url": "https://pokeapi.co/api/v2/pokemon-species/not-a-number/"},
@@ -83,7 +83,7 @@ func TestGetGenerationIndex_SkipsUnparsableSpeciesURL(t *testing.T) {
 		]}`))
 	})
 	for i := 2; i <= generationCount; i++ {
-		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		})
 	}
@@ -110,7 +110,7 @@ func TestGetGenerationIndex_CachesAcrossCalls(t *testing.T) {
 	mux := http.NewServeMux()
 	for i := 1; i <= generationCount; i++ {
 		i := i
-		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/generation/"+strconv.Itoa(i), func(w http.ResponseWriter, _ *http.Request) {
 			hits.Add(1)
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(generationFixtureJSON("generation-"+strconv.Itoa(i), i, "species-"+strconv.Itoa(i))))
@@ -132,7 +132,7 @@ func TestGetGenerationIndex_CachesAcrossCalls(t *testing.T) {
 }
 
 func TestGetGenerationIndex_TotalFailureReturnsEmptyMapNotNilPanic(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	t.Cleanup(server.Close)

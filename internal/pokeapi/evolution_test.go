@@ -221,7 +221,7 @@ const pikachuEvolutionChainJSON = `{
 // item.name, trigger.name, version_group.name) map into the right
 // EvolutionCondition fields and produce the right display text end to end.
 func TestGetEvolutionChain_DecodesRealShapedJSON(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/evolution-chain/10": {status: http.StatusOK, body: pikachuEvolutionChainJSON},
 	})
 
@@ -249,7 +249,7 @@ func TestGetEvolutionChain_DecodesRealShapedJSON(t *testing.T) {
 func TestGetEvolutionChain_CachesAcrossCalls(t *testing.T) {
 	hits := 0
 	mux := http.NewServeMux()
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		hits++
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(pikachuEvolutionChainJSON))
@@ -281,7 +281,7 @@ func TestGetEvolutionChain_CachesAcrossCalls(t *testing.T) {
 func TestGetEvolutionChain_ErrorsAreNotCached(t *testing.T) {
 	fail := true
 	mux := http.NewServeMux()
-	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/evolution-chain/10", func(w http.ResponseWriter, _ *http.Request) {
 		if fail {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -310,7 +310,7 @@ func TestGetEvolutionChain_ErrorsAreNotCached(t *testing.T) {
 // TestGetEvolutionChain_ServerError proves a non-200 response is classified
 // as a ServiceError, the same way every other pokeapi fetch is.
 func TestGetEvolutionChain_ServerError(t *testing.T) {
-	_, client := newFixtureServer(t, map[string]fixtureResponse{
+	client := newFixtureServer(t, map[string]fixtureResponse{
 		"/evolution-chain/10": {status: http.StatusInternalServerError},
 	})
 
