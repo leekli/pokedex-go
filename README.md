@@ -1,5 +1,9 @@
 # ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png) pokedex-go ![Pokemon Pokeball](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png)
 
+[![CI](https://github.com/leekli/pokedex-go/actions/workflows/ci.yml/badge.svg)](https://github.com/leekli/pokedex-go/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-%E2%89%A593%25-brightgreen)
+![Go](https://img.shields.io/badge/go-1.26-00ADD8)
+
 A terminal Pokédex. Launch it, press Enter, then either type a Pokémon's
 name or National Dex Number, or browse by type, and see its sprite and
 stats rendered in your terminal, styled after the Pokédex screens from the
