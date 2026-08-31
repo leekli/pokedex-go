@@ -1,0 +1,16 @@
+# Config for vladopajic/go-test-coverage: the coverage gate used in CI.
+# Thresholds ratchet upward over time — raise them, do not lower them.
+profile: cover.out
+local-prefix: "github.com/leekli/pokedex-go"
+
+threshold:
+  file: 80
+  package: 90
+  total: 93
+
+override:
+  # main.go is entrypoint glue exercised end-to-end, not by unit tests.
+  # The pattern must match both the package path (cmd/pokedex-go) and the
+  # file path (cmd/pokedex-go/main.go), so it carries no trailing slash.
+  - path: ^cmd/pokedex-go
+    threshold: 0
