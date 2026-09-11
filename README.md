@@ -24,7 +24,7 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
 ![Pokemon Mew](https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png)
 
 > [!NOTE]
-> This is my project built learning & using Agentic AI (Claude Code).
+> This project is built using `Claude Code`. This is a project to aid my own learning of using Agentic AI tooling 🤖
 
 ## Features
 
@@ -66,13 +66,13 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
 
 ## Controls
 
-| Screen      | Keys                                                                                     |
-| ----------- | ----------------------------------------------------------------------------------------- |
-| Splash      | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit                                              |
-| Search      | `Enter` search · `Tab` switch to the Search by Type button · `Esc` back · `Ctrl+C` quit   |
-| Type Select | `↑`/`↓` browse · `Enter` select a type · `Esc` back · `Ctrl+C` quit                       |
-| Type Roster | `↑`/`↓` scroll · `Enter` select a Pokémon · `Esc` back · `Ctrl+C` quit                    |
-| Result      | `Enter` search again · `Esc` back · `Q` / `Ctrl+C` quit                                   |
+| Screen      | Keys                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------- |
+| Splash      | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit                                            |
+| Search      | `Enter` search · `Tab` switch to the Search by Type button · `Esc` back · `Ctrl+C` quit |
+| Type Select | `↑`/`↓` browse · `Enter` select a type · `Esc` back · `Ctrl+C` quit                     |
+| Type Roster | `↑`/`↓` scroll · `Enter` select a Pokémon · `Esc` back · `Ctrl+C` quit                  |
+| Result      | `Enter` search again · `Esc` back · `Q` / `Ctrl+C` quit                                 |
 
 Mouse: click the Search by Type button, click a type or a Pokémon row, and
 scroll the wheel on the Type Roster's table — all work wherever your
@@ -218,7 +218,7 @@ change within a single run of the app, so re-fetching it is pure waste.
 `GetPokemon`, `GetSpecies`, `GetGenerationIndex`, and `GetEvolutionChain`
 each cache their result keyed by whatever they were called with (name, dex
 number, evolution-chain id);
-`FetchSprite` caches the already-*decoded* image by URL, skipping the PNG
+`FetchSprite` caches the already-_decoded_ image by URL, skipping the PNG
 decode too on a repeat. `GetPokemonByType` and `GetTypeDamageRelations` go
 further and share one cached fetch per type name, since both read the same
 `/type/{name}` resource — whichever of the two is called first fetches it,
