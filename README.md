@@ -66,22 +66,22 @@ Error vs. Service Error, etc.), see [CONTEXT.md](./CONTEXT.md).
 
 ## Controls
 
-| Screen      | Keys                                                                                    |
-| ----------- | --------------------------------------------------------------------------------------- |
-| Splash      | `Enter` search · `Q` / `Esc` / `Ctrl+C` quit                                            |
-| Search      | `Enter` search · `Tab` switch to the Search by Type button · `Esc` back · `Ctrl+C` quit |
-| Type Select | `↑`/`↓` browse · `Enter` select a type · `Esc` back · `Ctrl+C` quit                     |
-| Type Roster | `↑`/`↓` scroll · `Enter` select a Pokémon · `Esc` back · `Ctrl+C` quit                  |
-| Result      | `Enter` search again · `Esc` back · `Q` / `Ctrl+C` quit                                 |
+| Screen      | Keys                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Splash      | <kbd>Enter</kbd> search · <kbd>Q</kbd> / <kbd>ESC</kbd> / <kbd>CTRL + C</kbd> quit                                            |
+| Search      | <kbd>Enter</kbd> search · <kbd>Tab</kbd> switch to the Search by Type button · <kbd>ESC</kbd> back · <kbd>CTRL + C</kbd> quit |
+| Type Select | <kbd>↑/↓</kbd> browse · <kbd>Enter</kbd> select a type · <kbd>ESC</kbd> back · <kbd>CTRL + C</kbd> quit                       |
+| Type Roster | <kbd>↑/↓</kbd> scroll · <kbd>Enter</kbd> select a Pokémon · <kbd>ESC</kbd> back · <kbd>CTRL + C</kbd> quit                    |
+| Result      | <kbd>Enter</kbd> search again · <kbd>ESC</kbd> back · <kbd>Q</kbd> / <kbd>CTRL + C</kbd> quit                                 |
 
 Mouse: click the Search by Type button, click a type or a Pokémon row, and
 scroll the wheel on the Type Roster's table — all work wherever your
 terminal reports mouse events.
 
-(On the Search Screen, only `Ctrl+C` quits — a bare `Q` stays typeable, since
+(On the Search Screen, only <kbd>CTRL + C</kbd> quits — a bare <kbd>Q</kbd> stays typeable, since
 plenty of Pokémon names contain it, e.g. Squirtle. On the Result Screen,
-`Esc` returns to wherever you came from — the Search Screen, or the Type
-Roster Screen if that's how you got here — while `Enter` always starts a
+<kbd>ESC</kbd> returns to wherever you came from — the Search Screen, or the Type
+Roster Screen if that's how you got here — while <kbd>Enter</kbd> always starts a
 fresh search; see [Architecture](#architecture).)
 
 ## Requirements
@@ -187,6 +187,8 @@ led to the current one, however deep the path — see
 The one exception is the Result Screen's Enter, which always means "search
 again" and resets straight back to the Search Screen regardless of history.
 
+#### Diagram 1
+
 ```mermaid
 flowchart LR
     Splash -->|Enter| Search
@@ -200,6 +202,118 @@ flowchart LR
     Result -->|Enter: fresh search| Search
     Result -.->|Esc: back to wherever this came from| Search
     Result -.->|Esc: back to wherever this came from| TypeRoster
+```
+
+---
+
+#### Diagram 2
+
+```mermaid
+flowchart TD
+
+subgraph group_entry["Application Entry"]
+  node_main["Program Entry<br/>[main.go]"]
+end
+
+subgraph group_tui["TUI Navigation"]
+  node_app["Root App<br/>[app.go]"]
+  node_splash["Splash Screen<br/>[splash.go]"]
+  node_search["Search Screen<br/>[search.go]"]
+  node_type_select["Type Select<br/>[typeselect.go]"]
+  node_type_roster["Type Roster<br/>[typeroster.go]"]
+  node_result["Result Screen<br/>[result.go]"]
+end
+
+subgraph group_domain["Domain Presentation"]
+  node_query["Query Resolution<br/>[query.go]"]
+  node_pokemon_domain["Pokémon Domain"]
+end
+
+subgraph group_api["PokeAPI Integration"]
+  node_client["API Client<br/>[client.go]"]
+  node_api_cache[("Response Cache<br/>[cache.go]")]
+  node_lookup_data["Lookup Mapping<br/>[lookup.go]"]
+  node_type_data["Type Data<br/>[typeroster.go]"]
+  node_evolution_data["Evolution Data<br/>[evolution.go]"]
+  node_entry_data["Entry Data<br/>[pokedexentry.go]"]
+  node_sprite_data["Sprite Data<br/>[sprite.go]"]
+  node_effectiveness_data["Type Effectiveness"]
+end
+
+subgraph group_render["Terminal Rendering"]
+  node_sprite_renderer["Sprite Renderer<br/>[render.go]"]
+end
+
+node_user(("User"))
+node_pokeapi{{"Public PokeAPI"}}
+
+node_user -->|"launches"| node_main
+node_main -->|"creates"| node_client
+node_main -->|"starts"| node_app
+node_app -->|"shows"| node_splash
+node_user -->|"sends input"| node_app
+node_app -->|"dispatches"| node_search
+node_app -->|"dispatches"| node_type_select
+node_app -->|"dispatches"| node_type_roster
+node_app -->|"dispatches"| node_result
+node_search -->|"resolves input"| node_query
+node_search -->|"requests lookup"| node_client
+node_type_roster -->|"requests roster"| node_client
+node_type_select -->|"lists types"| node_pokemon_domain
+node_client -->|"maps lookup"| node_lookup_data
+node_client -->|"maps type data"| node_type_data
+node_client -->|"loads evolution"| node_evolution_data
+node_client -->|"loads entries"| node_entry_data
+node_client -->|"loads sprites"| node_sprite_data
+node_client -->|"loads relations"| node_effectiveness_data
+node_lookup_data -->|"requests data"| node_pokeapi
+node_type_data -->|"requests types"| node_pokeapi
+node_evolution_data -->|"requests chains"| node_pokeapi
+node_entry_data -->|"requests entries"| node_pokeapi
+node_sprite_data -->|"requests images"| node_pokeapi
+node_effectiveness_data -->|"requests relations"| node_pokeapi
+node_client -->|"reads and writes"| node_api_cache
+node_lookup_data -->|"builds models"| node_pokemon_domain
+node_type_data -->|"builds relations"| node_pokemon_domain
+node_evolution_data -->|"builds chains"| node_pokemon_domain
+node_search -->|"emits result"| node_app
+node_type_select -->|"selects type"| node_app
+node_type_roster -->|"selects Pokémon"| node_app
+node_app -->|"passes result"| node_result
+node_result -->|"formats data"| node_pokemon_domain
+node_result -->|"renders sprites"| node_sprite_renderer
+
+click node_main "https://github.com/leekli/pokedex-go/blob/main/cmd/pokedex-go/main.go"
+click node_app "https://github.com/leekli/pokedex-go/blob/main/internal/tui/app.go"
+click node_splash "https://github.com/leekli/pokedex-go/blob/main/internal/tui/splash.go"
+click node_search "https://github.com/leekli/pokedex-go/blob/main/internal/tui/search.go"
+click node_type_select "https://github.com/leekli/pokedex-go/blob/main/internal/tui/typeselect.go"
+click node_type_roster "https://github.com/leekli/pokedex-go/blob/main/internal/tui/typeroster.go"
+click node_result "https://github.com/leekli/pokedex-go/blob/main/internal/tui/result.go"
+click node_query "https://github.com/leekli/pokedex-go/blob/main/internal/pokemon/query.go"
+click node_pokemon_domain "https://github.com/leekli/pokedex-go/tree/main/internal/pokemon"
+click node_client "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/client.go"
+click node_api_cache "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/cache.go"
+click node_lookup_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/lookup.go"
+click node_type_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/typeroster.go"
+click node_evolution_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/evolution.go"
+click node_entry_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/pokedexentry.go"
+click node_sprite_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/sprite.go"
+click node_effectiveness_data "https://github.com/leekli/pokedex-go/blob/main/internal/pokeapi/typeeffectiveness.go"
+click node_sprite_renderer "https://github.com/leekli/pokedex-go/blob/main/internal/spriteart/render.go"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_main,node_user toneBlue
+class node_app,node_splash,node_search,node_type_select,node_type_roster,node_result toneAmber
+class node_query,node_pokemon_domain,node_pokeapi toneMint
+class node_client,node_api_cache,node_lookup_data,node_type_data,node_evolution_data,node_entry_data,node_sprite_data,node_effectiveness_data toneRose
+class node_sprite_renderer toneIndigo
 ```
 
 Both paths into the Result Screen end up calling the same
